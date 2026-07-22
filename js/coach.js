@@ -297,6 +297,7 @@ function updateCoachCommentaryHeader() {
   const tacticalHint = suggestedMove && previousState ? getTacticalHintForMove(previousState.fen, suggestedMove) : '';
 
   let text = "";
+   let audiotext = "";
   const alternativeHint = suggestedSan && suggestedSan !== state.san
     ? `A stronger idea was ${suggestedSan}.${tacticalHint ? ` ${tacticalHint}` : ''}`
     : null;
@@ -304,36 +305,46 @@ function updateCoachCommentaryHeader() {
   switch (quality) {
     case CLASSIFICATIONS.BOOK:
       text = `You played "${state.san}". Nice opening choice — it keeps the position flexible and helps you finish development.`;
+     audiotext=`Nice opening choice`;
       break;
     case CLASSIFICATIONS.BRILLIANT:
       text = `You played "${state.san}". Great tactical vision — it forces the position in your favor and keeps your pieces coordinated.`;
+      audiotext=`Great tactical vision`;
       break;
     case CLASSIFICATIONS.GREAT:
       text = `You played "${state.san}". Good idea — it keeps the pressure on and gives you a clear follow-up.`;
+     audiotext=`Great tactical vision`;
       break;
     case CLASSIFICATIONS.BEST:
       text = `You played "${state.san}". Excellent. This move keeps your position active while avoiding unnecessary risk.`;
+      audiotext=`Excellent move`;
       break;
     case CLASSIFICATIONS.EXCELLENT:
       text = `You played "${state.san}". Very solid — it keeps the structure healthy and maintains your momentum.`;
+      audiotext=`Very solid  move`;
       break;
     case CLASSIFICATIONS.GOOD:
       text = `You played "${state.san}". Solid play. There is still a slightly sharper plan available from this position.`;
+     audiotext=`Solid play`;
       break;
     case CLASSIFICATIONS.INACCURACY:
       text = alternativeHint || `You played "${state.san}". A cleaner idea was available here.`;
+     audiotext=`A cleaner idea was available here.`;
       break;
     case CLASSIFICATIONS.MISTAKE:
       text = alternativeHint || `You played "${state.san}". A more precise move would have avoided the trouble this created.`;
+      audiotext=`A more precise move would have avoided the trouble this created.`;
       break;
     case CLASSIFICATIONS.MISSED_WIN:
       text = alternativeHint || `You played "${state.san}". A more direct plan would have pressed your advantage more clearly.`;
+      audiotext=`A more direct plan would have pressed your advantage more clearly.`;
       break;
     case CLASSIFICATIONS.BLUNDER:
       text = alternativeHint || `You played "${state.san}". This move leaves the position in a weaker state than necessary.`;
+    audiotext=`This move leaves the position in a weaker state`;
       break;
   }
 
   txtCoachComment.innerText = text;
-  speakCoachCommentary(text);
+  speakCoachCommentary(audiotext);
 }
