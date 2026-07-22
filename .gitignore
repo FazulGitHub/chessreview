@@ -1,3 +1,10 @@
 # Ignore the unsaved/temporary new file created in the repo
 New file
 styles.css
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
