@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Chess Review Studio</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chess.js Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+    
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #0b0f19; /* Deep Slate Background */
+      color: #f8fafc;
+      touch-action: manipulation;
+    }
+
+    ::-webkit-scrollbar {
+      height: 0px;
+      width: 0px;
+    }
+
+    /* Vertical text for Eval Bar */
+    .vertical-text {
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+    }
+
+    /* Gentle bounce for Pawn Coach */
+    .coach-bounce {
+      animation: gentleBounce 2.5s infinite ease-in-out;
+    }
+    @keyframes gentleBounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-3px); }
+    }
+
+    /* Speech indicator animation */
+    .voice-pulse {
+      animation: voicePulse 1.2s infinite ease-in-out;
+    }
+    @keyframes voicePulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.08); }
+    }
+
+    /* Celebration confetti */
+    .confetti {
+      position: fixed;
+      width: 7px;
+      height: 7px;
+      pointer-events: none;
+      animation: fall 1.5s linear forwards;
+      z-index: 9999;
+    }
+    @keyframes fall {
+      0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+    }
+  </style>
+</head>
+<body class="h-[100dvh] w-full flex flex-col justify-between select-none bg-[#0b0f19] overflow-hidden">
+
+  <!-- ========================================================================= -->
+  <!-- PAGE 1: GAMES ARCHIVE SELECTION LIST                                      -->
+  <!-- ========================================================================= -->
+  <main id="view-games-list" class="flex-1 max-w-xl w-full mx-auto p-4 flex flex-col gap-4 overflow-y-auto">
+    
+    <!-- Header search bar -->
+    <div class="bg-[#151c2c] rounded-2xl p-4 border border-[#222f43] shadow-xl flex flex-col gap-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="bg-indigo-600 p-2 rounded-xl text-white shadow-lg">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2a3 3 0 0 0-3 3c0 .85.35 1.61.92 2.16C8.74 8.2 7 10.5 7 13h10c0-2.5-1.74-4.8-2.92-5.84.57-.55.92-1.31.92-2.16a3 3 0 0 0-3-3zM7 16h10v2H7v-2zm-2 4h14v2H5v-2z"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-base font-extrabold text-white flex items-center gap-1.5">
+              Faz Chess Review App</span>
+            </h1>
+            <p class="text-[11px] text-slate-400">Import player games & analyze key moments with AI speech</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Search Form -->
+      <div class="flex items-center gap-2 mt-1">
+        <div class="relative flex-1">
+          <input
+            id="username-input"
+            type="text"
+            placeholder="Username"
+            value="fazcheckmate"
+            class="w-full bg-[#0f172a] border border-[#334155] rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-semibold"
+          />
+          <span class="absolute left-3 top-2.5 text-slate-400 text-xs">👤</span>
+        </div>
+        <button
+          id="fetch-btn"
+          type="button"
+          class="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-black px-4 py-2 rounded-xl shadow-lg transition-colors flex items-center gap-1.5 whitespace-nowrap"
+        >
+          <span>🔍</span> <span>Fetch</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Alert Container -->
+    <div id="status-alert" class="hidden rounded-xl p-3 text-xs font-semibold text-center border"></div>
+
+    <!-- Archives Select Bar -->
+    <div class="bg-[#151c2c] rounded-xl p-3 border border-[#222f43] flex items-center justify-between gap-3">
+      <span id="archive-lbl" class="text-xs font-bold text-slate-400">Month Archive:</span>
+      <select
+        id="archive-select"
+        class="bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-semibold flex-1 max-w-[200px]"
+        disabled
+      >
+        <option>Scanning profile...</option>
+      </select>
+    </div>
+
+    <!-- Games List Grid -->
+    <div class="bg-[#151c2c] rounded-2xl border border-[#222f43] shadow-xl overflow-hidden flex-1 flex flex-col min-h-[400px]">
+      <div class="p-3.5 border-b border-[#222f43] flex items-center justify-between bg-[#0f172a]">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Archived Matches</h2>
+        <span id="games-total-badge" class="bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-xs font-black px-2.5 py-0.5 rounded-full">0</span>
+      </div>
+
+      <div id="games-scroller" class="flex-1 overflow-y-auto divide-y divide-[#1e293b] p-2 flex flex-col gap-2">
+        <div class="p-12 text-center text-slate-500 text-xs flex flex-col items-center justify-center gap-2">
+          <span class="text-3xl">♟️</span>
+          <span>Click "Load" to load games for review.</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+
+  <!-- ========================================================================= -->
+  <!-- PAGE 2: MOBILE GAME REVIEW SCREEN                                         -->
+  <!-- ========================================================================= -->
+  <div id="view-game-review" class="h-[100dvh] max-h-[100dvh] w-full max-w-md mx-auto flex flex-col justify-between bg-[#0b0f19] overflow-hidden hidden relative">
+    
+    <!-- TOP HEADER BAR (Back Arrow, Logo, Options) -->
+    <header class="bg-[#151c2c] px-4 py-2 border-b border-[#222f43] flex items-center justify-between shrink-0 h-11">
+     
+
+      <!-- Center Logo -->
+      <div class="flex items-center gap-1.5">
+        <div class="bg-indigo-600 p-1 rounded text-white font-black text-xs shadow">♟</div>
+        <span class="text-sm font-black tracking-tight text-white">Review Your Game</span></span>
+      </div>
+
+      <!-- Right Options Toggle -->
+      <button id="toggle-options-btn" type="button" class="p-1.5 -mr-1 text-slate-300 hover:text-white transition-colors" title="Review Options">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <path stroke-linecap="round" d="M21 21l-4.35-4.35"/>
+          <path stroke-linecap="round" d="M11 8v6M8 11h6"/>
+        </svg>
+      </button>
+    </header>
+
+    <!-- SINGLE-ROW PLAYER COLOR MATCHUP BANNER -->
+    <div id="matchup-banner" class="bg-[#111827] border-b border-[#1f2937] px-3 py-1.5 flex items-center justify-between text-xs shrink-0 h-8">
+      <div class="flex items-center gap-1.5 truncate">
+        <span class="text-xs">⚪</span>
+        <span class="text-[10px] font-extrabold text-slate-400 uppercase">White:</span>
+        <span id="matchup-white-name" class="text-white font-extrabold truncate text-xs">--</span>
+      </div>
+      <span class="text-[10px] font-black text-indigo-400 uppercase px-2 shrink-0">VS</span>
+      <div class="flex items-center gap-1.5 truncate justify-end">
+        <span id="matchup-black-name" class="text-white font-extrabold truncate text-xs">--</span>
+        <span class="text-[10px] font-extrabold text-slate-400 uppercase">:Black</span>
+        <span class="text-xs">⚫</span>
+      </div>
+    </div>
+
+    <!-- MAIN BOARD AREA & COACH CARD (FIXED DYNAMIC FLEX) -->
+    <main class="flex-1 flex flex-col justify-evenly px-3 py-1.5 overflow-hidden min-h-0">
+      
+      <!-- COACH ANALYSIS BANNER OVERLAY -->
+      <div id="coach-review-card" class="bg-[#151c2c] border border-[#222f43] rounded-xl p-2.5 shadow-lg flex flex-col gap-1 shrink-0">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1.5">
+            <span id="badge-classification" class="text-[9px] font-black px-2 py-0.5 rounded uppercase border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 flex items-center gap-1">
+              <span>⭐</span> <span id="badge-class-text">Best Move</span>
+            </span>
+            <span id="lbl-move-num" class="text-[9px] text-slate-400 font-bold">Move #1</span>
+          </div>
+
+          <div id="best-recommendation-box" class="text-[9px] font-black text-indigo-400 bg-[#0f172a] px-1.5 py-0.5 rounded border border-indigo-500/30">
+            Coach: <span id="lbl-best-move-val">Balanced</span>
+          </div>
+
+        </div>
+
+        <!-- Speech Text -->
+        <div class="flex items-start gap-2">
+          <div class="coach-bounce shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="7" r="4"/>
+              <path d="M12 12c-4 0-7 3-7 7v1h14v-1c0-4-3-7-7-7z"/>
+            </svg>
+          </div>
+          <div class="flex-1">
+            <div class="flex items-center justify-between mb-0.5">
+              <span class="text-[8.5px] font-extrabold text-indigo-400 uppercase tracking-wider">Coach Analysis</span>
+              <span id="speaking-indicator" class="hidden text-[8.5px] text-amber-400 font-black voice-pulse">🗣️ Speaking...</span>
+            </div>
+            <p id="txt-coach-comment" class="text-[10.5px] text-slate-200 font-medium leading-tight">
+              Position loaded. Navigate moves using forward/backward controls.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHESSBOARD FRAME WITH DYNAMIC HEIGHT RESIZING -->
+      <div class="flex-1 min-h-0 flex items-center justify-center w-full my-1">
+        <div class="flex gap-2 items-stretch justify-center h-full max-h-[min(52vh,420px)] aspect-square relative">
+          
+          <!-- Slender Vertical Eval Bar -->
+          <div class="w-2.5 bg-[#0f172a] border border-[#1e293b] rounded-sm overflow-hidden flex flex-col justify-end relative shrink-0">
+            <div id="eval-black-fill" class="bg-[#1e293b] w-full transition-all duration-300"></div>
+            <div id="eval-white-fill" class="bg-white w-full transition-all duration-300"></div>
+          </div>
+
+          <!-- The Chessboard -->
+          <div class="h-full aspect-square rounded-md overflow-hidden border border-[#1e293b] shadow-2xl relative flex-1">
+            <div id="board-grid" class="grid grid-cols-8 grid-rows-8 w-full h-full"></div>
+            
+            <!-- Drawing Overlay Canvas for Arrow suggestions -->
+            <canvas id="board-arrows-canvas" class="absolute inset-0 pointer-events-none z-30"></canvas>
+          </div>
+
+          <!-- Retry Challenge Banner -->
+          <div id="review-retry-banner" class="absolute -top-14 left-2 right-2 bg-indigo-600 text-white text-xs font-black px-3 py-1.5 rounded shadow-2xl flex items-center justify-between z-10 hidden">
+            <span>🎯 RETRY: Find a stronger follow-up!</span>
+            <button id="exit-retry-btn" type="button" class="bg-slate-900 text-white px-2 py-0.5 rounded text-[9px] uppercase font-bold">Exit</button>
+          </div>
+
+        </div>
+      </div>
+
+    </main>
+
+    <!-- BOTTOM ACTION NAVIGATION BAR (CLEAN 3-BUTTON LAYOUT) -->
+    <footer class="bg-[#111827] border-t border-[#1f2937] px-6 py-2 flex items-center justify-between shrink-0 h-13">
+      
+       <!-- Back Arrow Button -->
+      <button id="nav-back-to-list-btn" type="button" class="p-1.5 -ml-1 text-slate-300 hover:text-white transition-colors" title="Back to Games List">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
+        </svg>
+        <span class="text-[10px] font-bold tracking-tight">Back to Games</span>
+      </button>
+      <!-- 1. Options Menu Button -->
+      <button id="btn-action-options" type="button" class="flex flex-col items-center justify-center gap-0.5 text-slate-400 hover:text-white transition-colors w-20">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+        <span class="text-[10px] font-bold tracking-tight">Options</span>
+      </button>
+
+      <!-- 2. Back Button -->
+      <button id="ctrl-prev" type="button" class="flex flex-col items-center justify-center gap-0.5 text-slate-200 hover:text-white transition-colors w-20 active:scale-90">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+        </svg>
+        <span class="text-[10px] font-bold tracking-tight">Back</span>
+      </button>
+
+      <!-- 3. Forward Button -->
+      <button id="ctrl-next" type="button" class="flex flex-col items-center justify-center gap-0.5 text-slate-200 hover:text-white transition-colors w-20 active:scale-90">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+        </svg>
+        <span class="text-[10px] font-bold tracking-tight">Forward</span>
+      </button>
+
+    </footer>
+
+    <!-- OPTIONS DRAWER MODAL -->
+    <div id="options-drawer" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex flex-col justify-end hidden">
+      <div class="bg-[#151c2c] border-t border-[#222f43] rounded-t-3xl p-5 flex flex-col gap-4">
+        <div class="flex items-center justify-between border-b border-[#222f43] pb-3">
+          <h3 class="text-sm font-extrabold text-white flex items-center gap-2">⚙️ Game Settings</h3>
+          <button id="close-options-btn" type="button" class="text-slate-400 font-black text-lg px-2">✕</button>
+        </div>
+
+        <!-- Piece Style Theme Switcher -->
+        <div class="flex items-center justify-between bg-[#0f172a] p-3 rounded-xl border border-[#222f43]">
+          <div class="flex items-center gap-2.5">
+            <span class="text-lg">♟️</span>
+            <div>
+              <div class="text-xs font-bold text-white">Piece Style</div>
+              <div class="text-[10px] text-slate-400">Select piece artwork set</div>
+            </div>
+          </div>
+          <select id="piece-theme-select" class="bg-[#1e293b] border border-[#334155] text-white font-extrabold text-xs px-3 py-1.5 rounded-lg focus:outline-none focus:border-indigo-500">
+            <option value="staunty">Staunty (Modern)</option>
+            <option value="merida">Merida (Classic)</option>
+            <option value="alpha">Alpha (Minimal)</option>
+            <option value="pixel">Pixel (Retro 8-bit)</option>
+            <option value="maestro">Maestro (Sculpted)</option>
+            <option value="california">California (Smooth)</option>
+          </select>
+        </div>
+
+        <!-- Voice Toggle -->
+        <div class="flex items-center justify-between bg-[#0f172a] p-3 rounded-xl border border-[#222f43]">
+          <div class="flex items-center gap-2.5">
+            <span class="text-lg">🔊</span>
+            <div>
+              <div class="text-xs font-bold text-white">Coach Voice Commentary</div>
+              <div class="text-[10px] text-slate-400">Speak out move analysis automatically</div>
+            </div>
+          </div>
+          <button id="voice-toggle-btn" type="button" class="bg-indigo-600 text-white font-extrabold text-xs px-3 py-1.5 rounded-lg">
+            Enabled
+          </button>
+        </div>
+
+        <!-- Retry Mistakes Trigger -->
+        <button id="btn-start-retry" type="button" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs py-3 rounded-xl border border-indigo-500/30 flex items-center justify-center gap-2 shadow-lg">
+          <span>🎯</span> <span>Retry Critical Mistakes</span>
+        </button>
+
+        <!-- Flip Board Button -->
+        <button id="ctrl-flip" type="button" class="w-full bg-[#0f172a] hover:bg-[#1e293b] text-slate-200 font-extrabold text-xs py-3 rounded-xl border border-[#222f43] flex items-center justify-center gap-2">
+          <span>🔄</span> <span>Flip Board View</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Application Script -->
+ 
+
+  <script src="js\app.js"></script>
+  <script src="js\audio.js"></script>
+  <script src="js\api.js"></script>
+  <script src="js\chess-engine.js"></script>
+  <script src="js\ui.js"></script>
+  <script src="js\coach.js"></script>
+</body>
+</html>
