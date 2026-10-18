@@ -446,10 +446,10 @@
         <div class="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col gap-4">
           <div class="flex items-start justify-between gap-2">
             <div>
-              <span id="moveCounterLabel" class="text-xs font-bold uppercase tracking-wider text-slate-400">
+              <span id="moveCounterLabel" class="text-xs uppercase tracking-wider text-slate-400">
                 Position 0 / 12
               </span>
-              <h2 id="playedMoveHeadline" class="text-lg font-extrabold text-slate-900 mt-0.5">
+              <h2 id="playedMoveHeadline" class="text-xs font-bold  text-slate-400 mt-0.5">
                 Starting Position
               </h2>
             </div>
@@ -457,65 +457,6 @@
               READY
             </span>
           </div>
-
-          <!-- Plain-English Coaching Insight Box -->
-          <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col gap-2">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-slate-500 flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                COACHING INSIGHT
-              </span>
-              <span id="engineDepthTag" class="mono text-xs font-semibold text-slate-500">
-                Depth 14
-              </span>
-            </div>
-            <div id="bestLineText" class="text-sm font-bold text-slate-800">
-              Recommended: <span class="mono text-emerald-700">e4</span> (Controls the center)
-            </div>
-            <div class="flex flex-wrap items-center gap-2 pt-0.5">
-              <button
-                id="playRecBtn"
-                onclick="playRecommended()"
-                class="hidden text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white shadow-sm transition cursor-pointer"
-                title="Play the recommended move on the board and keep playing from there"
-              >
-                ▶ Play Recommended
-              </button>
-              <button
-                id="autoReplyBtn"
-                onclick="toggleAutoReply()"
-                class="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-                title="When ON, the engine answers each move you play in your variation"
-              >
-                🤖 Engine Reply: OFF
-              </button>
-            </div>
-            <div class="text-[11px] text-slate-400 leading-snug">
-              Tip: click a piece, then a highlighted square, to play your own moves from any position.
-            </div>
-            <div id="tacticalExplanation" class="text-xs text-slate-600 leading-relaxed">
-              Step forward with the controls below or tap any move in the score sheet to review human-friendly feedback.
-            </div>
-          </div>
-
-          <!-- Legend for Board Highlights -->
-          <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-600 pt-1">
-            <div class="flex items-center gap-1.5">
-              <span class="w-3.5 h-3.5 rounded bg-amber-400/60 border-2 border-amber-600 inline-block"></span>
-              <span>Played Move</span>
-            </div>
-            <div class="flex items-center gap-1.5">
-              <span class="w-3.5 h-3.5 rounded bg-emerald-400/50 border-2 border-emerald-600 inline-block"></span>
-              <span>Best Alternative</span>
-            </div>
-            <div class="flex items-center gap-1.5">
-              <span class="w-3.5 h-3.5 rounded bg-white border-2 border-slate-900 inline-block"></span>
-              <span>White</span>
-              <span class="w-3.5 h-3.5 rounded bg-slate-900 border border-white outline outline-1 outline-slate-400 inline-block ml-1"></span>
-              <span>Black</span>
-            </div>
-          </div>
-
           <!-- Primary Transport Controls -->
           <div class="grid grid-cols-5 gap-2 pt-1">
             <button
@@ -546,6 +487,67 @@
             >
               End ⏭
             </button>
+          </div>
+
+          <!-- Plain-English Coaching Insight Box -->
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                COACHING INSIGHT
+              </span>
+              <span id="engineDepthTag" class="mono text-xs font-semibold text-slate-500">
+                Depth 14
+              </span>
+            </div>
+            <div id="bestLineText" class="text-sm font-bold text-slate-800">
+              Recommended: <span class="mono text-emerald-700">e4</span> (Controls the center)
+            </div>
+            <div class="flex flex-nowrap items-center gap-2 pt-0.5">
+              <button
+                id="playRecBtn"
+                onclick="playRecommended()"
+                class="hidden whitespace-nowrap text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white shadow-sm transition cursor-pointer"
+                title="Play the recommended move on the board and keep playing from there"
+              >
+                <span class="sm:hidden">▶ Play Best</span><span class="hidden sm:inline">▶ Play Recommended</span>
+              </button>
+              <button
+                id="autoReplyBtn"
+                onclick="toggleAutoReply()"
+                class="whitespace-nowrap text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                title="When ON, the engine answers each move you play in your variation"
+              >
+                🤖 Engine<span class="hidden sm:inline"> Reply</span>: OFF
+              </button>
+            </div>
+            <div class="text-[11px] text-slate-400 leading-snug">
+              Tip: click a piece, then a highlighted square, to play your own moves from any position.
+            </div>
+            <div id="tacticalExplanation" class="text-xs text-slate-600 leading-relaxed">
+              Step forward with the controls below or tap any move in the score sheet to review human-friendly feedback.
+            </div>
+          </div>
+
+          
+
+          
+          <!-- Legend for Board Highlights -->
+          <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-600 pt-1">
+            <div class="flex items-center gap-1.5">
+              <span class="w-3.5 h-3.5 rounded bg-amber-400/60 border-2 border-amber-600 inline-block"></span>
+              <span>Played Move</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-3.5 h-3.5 rounded bg-emerald-400/50 border-2 border-emerald-600 inline-block"></span>
+              <span>Best Alternative</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-3.5 h-3.5 rounded bg-white border-2 border-slate-900 inline-block"></span>
+              <span>White</span>
+              <span class="w-3.5 h-3.5 rounded bg-slate-900 border border-white outline outline-1 outline-slate-400 inline-block ml-1"></span>
+              <span>Black</span>
+            </div>
           </div>
         </div>
 
@@ -1179,12 +1181,11 @@
     function toggleAutoReply() {
       autoReply = !autoReply;
       const btn = document.getElementById('autoReplyBtn');
+      btn.innerHTML = `🤖 Engine<span class="hidden sm:inline"> Reply</span>: ${autoReply ? 'ON' : 'OFF'}`;
       if (autoReply) {
-        btn.textContent = '🤖 Engine Reply: ON';
-        btn.className = 'text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-violet-300 bg-violet-50 text-violet-800 hover:bg-violet-100 transition cursor-pointer';
+        btn.className = 'whitespace-nowrap text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-violet-300 bg-violet-50 text-violet-800 hover:bg-violet-100 transition cursor-pointer';
       } else {
-        btn.textContent = '🤖 Engine Reply: OFF';
-        btn.className = 'text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 transition cursor-pointer';
+        btn.className = 'whitespace-nowrap text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 transition cursor-pointer';
         autoReplyPly = -1;
       }
     }
