@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PulseChess — Human-Friendly Tactical Game Review</title>
+  <title>FazChess — Human-Friendly Tactical Game Review</title>
   <!-- Tailwind CSS for responsive layout & clean Nordic typography -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Google Fonts: Inter & JetBrains Mono -->
@@ -278,67 +278,86 @@
   <!-- Main Container -->
   <div class="max-w-6xl mx-auto flex flex-col gap-4">
 
-    <!-- Top Navigation & Chess.com Username Sync Header -->
-    <header class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <!-- Brand Identity -->
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2.5">
-            <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-extrabold shadow-sm">
-              ⚡
-            </div>
-            <div>
-              <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900 leading-none">
-                PulseChess
-              </h1>
-              <p class="text-xs text-slate-500 font-medium mt-0.5">
-                Human-Friendly Game Review • Clear Tactical Insights
-              </p>
-            </div>
+    <!-- ============ HOME SCREEN: username + list of played games ============ -->
+    <div id="homeScreen" class="flex flex-col gap-4 max-w-2xl mx-auto w-full">
+      <header class="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col gap-4">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-extrabold shadow-sm">
+            ⚡
           </div>
-          <span id="apiStatusBadge" class="md:hidden text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
-            Ready
-          </span>
+          <div>
+            <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900 leading-none">
+              PulseChess
+            </h1>
+            <p class="text-xs text-slate-500 font-medium mt-0.5">
+              Human-Friendly Game Review • Clear Tactical Insights
+            </p>
+          </div>
         </div>
 
-        <!-- Chess.com Username Search Bar -->
-        <div class="flex items-center gap-2 w-full md:w-auto">
-          <div class="relative flex-1 md:w-64">
+        <div class="flex flex-col gap-1.5">
+          <label for="usernameInput" class="text-xs font-bold uppercase tracking-wider text-slate-400">
+            Chess.com username
+          </label>
+          <div class="flex items-center gap-2">
             <input
               type="text"
               id="usernameInput"
               value="fazcheckmate"
               placeholder="Chess.com username..."
-              class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm font-medium rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-blue-600 focus:bg-white transition"
+              autocapitalize="none"
+              autocomplete="off"
+              spellcheck="false"
+              class="flex-1 min-w-0 bg-slate-50 border border-slate-300 text-slate-900 text-sm font-medium rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-blue-600 focus:bg-white transition"
               onkeydown="if(event.key === 'Enter') fetchPlayerGames()"
             />
+            <button
+              id="syncBtn"
+              onclick="fetchPlayerGames()"
+              class="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-sm transition whitespace-nowrap cursor-pointer"
+            >
+              Load Games
+            </button>
           </div>
-          <button
-            id="syncBtn"
-            onclick="fetchPlayerGames()"
-            class="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-sm transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
-          >
-            <span>Sync Games</span>
-          </button>
-          <span id="apiStatusDesktop" class="hidden md:inline-block text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 whitespace-nowrap">
-            Chess.com Live Sync
+          <span id="homeStatus" class="self-start text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 mt-1">
+            Enter a username to load games
           </span>
         </div>
-      </div>
+      </header>
 
-      <!-- Horizontal Game Selector Strip -->
-      <div class="mt-3 pt-3 border-t border-slate-100">
-        <div class="flex items-center justify-between mb-1.5">
-          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Select Game to Review (Auto-flips for Black)
-          </span>
-          <span class="text-xs text-slate-500 font-medium" id="archiveMonthLabel">
-            Latest Chess.com Archive
-          </span>
+      <section class="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-500">Played Games</h2>
+          <span class="text-xs text-slate-500 font-medium" id="archiveMonthLabel"></span>
         </div>
-        <div id="gameList" class="flex gap-2.5 overflow-x-auto thin-scroll pb-1.5"></div>
+        <div id="gameList" class="flex flex-col gap-2"></div>
+        <p class="text-[11px] text-slate-400 leading-snug">
+          Tap a game to review it. The board flips automatically when you played Black.
+        </p>
+      </section>
+    </div>
+
+    <!-- ============ GAME SCREEN ============ -->
+    <div id="gameScreen" class="hidden">
+    <div class="flex flex-col gap-4">
+
+    <!-- Game top bar: back button, title, option buttons -->
+    <div class="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-sm flex flex-col gap-3">
+      <div class="flex items-center gap-3">
+        <button
+          onclick="showHome()"
+          class="flex-shrink-0 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-800 text-xs font-bold px-3 py-2 rounded-lg transition cursor-pointer"
+          title="Back to game list"
+        >
+          ← Games
+        </button>
+        <div class="min-w-0 flex-1">
+          <div id="gameTitle" class="text-sm font-extrabold text-slate-900 truncate"></div>
+          <div id="gameMeta" class="text-[11px] font-semibold text-slate-500 mono truncate"></div>
+        </div>
       </div>
-    </header>
+    
+    </div>
 
     <!-- Main Content Grid: Hero Chessboard (Left) + Tactical Review Panel (Right) -->
     <main class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
@@ -346,30 +365,7 @@
       <!-- LEFT COLUMN (7 Cols on Desktop): Uncompressed Hero Board + Player Bars -->
       <section class="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-3.5 sm:p-5 shadow-sm flex flex-col gap-3">
 
-        <!-- Horizontal Win-Probability Momentum Bar -->
-        <div class="flex flex-col gap-1.5">
-          <div class="flex items-center justify-between text-xs font-bold">
-            <span class="text-slate-700 flex items-center gap-1.5">
-              <span class="inline-block w-2.5 h-2.5 rounded-full bg-white border-2 border-slate-900"></span>
-              <span id="evalWhitePct">White 52%</span>
-            </span>
-            <span id="evalScoreBadge" class="mono text-xs font-extrabold px-2.5 py-0.5 rounded-md bg-slate-900 text-white">
-              +0.20
-            </span>
-            <span class="text-slate-700 flex items-center gap-1.5">
-              <span id="evalBlackPct">Black 48%</span>
-              <span class="inline-block w-2.5 h-2.5 rounded-full bg-slate-900"></span>
-            </span>
-          </div>
-          <!-- Dual-Contrast Bar Track -->
-          <div class="w-full h-3.5 bg-slate-900 rounded-full overflow-hidden border border-slate-300 flex shadow-inner">
-            <div
-              id="pulseFill"
-              class="h-full bg-white transition-all duration-300 ease-out"
-              style="width: 52%; border-right: 2px solid #2563EB;"
-            ></div>
-          </div>
-        </div>
+        
 
         <!-- TOP PLAYER BAR + CONTROLS -->
         <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
@@ -384,30 +380,6 @@
             </div>
           </div>
 
-          <div class="flex items-center gap-2">
-            <button
-              onclick="toggleBestArrow()"
-              id="arrowToggleBtn"
-              class="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition cursor-pointer"
-              title="Toggle Best Move Arrow"
-            >
-              ↗ Best Arrow: ON
-            </button>
-            <button
-              id="soundToggleBtn"
-              onclick="toggleSound()"
-              class="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition cursor-pointer"
-              title="Toggle move sounds"
-            >
-              🔊 Sound: ON
-            </button>
-            <button
-              onclick="toggleFlipBoard()"
-              class="bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>⇅ Flip Board</span>
-            </button>
-          </div>
         </div>
 
         <!-- HERO 8x8 CHESSBOARD (Uncompressed 1:1 Aspect Ratio) -->
@@ -442,22 +414,10 @@
       <!-- RIGHT COLUMN (5 Cols on Desktop): Human-Friendly Coaching & Transport Controls -->
       <section class="lg:col-span-5 flex flex-col gap-4">
 
+       
         <!-- Human-Friendly Tactical Review Card -->
         <div class="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col gap-4">
-          <div class="flex items-start justify-between gap-2">
-            <div>
-              <span id="moveCounterLabel" class="text-xs uppercase tracking-wider text-slate-400">
-                Position 0 / 12
-              </span>
-              <h2 id="playedMoveHeadline" class="text-xs font-bold  text-slate-400 mt-0.5">
-                Starting Position
-              </h2>
-            </div>
-            <span id="moveGradeBadge" class="badge badge-good">
-              READY
-            </span>
-          </div>
-          <!-- Primary Transport Controls -->
+           <!-- Primary Transport Controls -->
           <div class="grid grid-cols-5 gap-2 pt-1">
             <button
               onclick="goToMove(0)"
@@ -488,6 +448,24 @@
               End ⏭
             </button>
           </div>
+        </div>
+          
+          
+          
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <span id="moveCounterLabel" class="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Position 0 / 12
+              </span>
+              <h2 id="playedMoveHeadline" class="text-lg font-extrabold text-slate-900 mt-0.5">
+                Starting Position
+              </h2>
+            </div>
+            <span id="moveGradeBadge" class="badge badge-good">
+              READY
+            </span>
+          </div>
+           
 
           <!-- Plain-English Coaching Insight Box -->
           <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col gap-2">
@@ -522,16 +500,13 @@
               </button>
             </div>
             <div class="text-[11px] text-slate-400 leading-snug">
-              Tip: click a piece, then a highlighted square, to play your own moves from any position.
+              Tip: To play your own moves from any position.
             </div>
             <div id="tacticalExplanation" class="text-xs text-slate-600 leading-relaxed">
               Step forward with the controls below or tap any move in the score sheet to review human-friendly feedback.
             </div>
           </div>
 
-          
-
-          
           <!-- Legend for Board Highlights -->
           <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-600 pt-1">
             <div class="flex items-center gap-1.5">
@@ -548,6 +523,31 @@
               <span class="w-3.5 h-3.5 rounded bg-slate-900 border border-white outline outline-1 outline-slate-400 inline-block ml-1"></span>
               <span>Black</span>
             </div>
+          </div>
+
+          
+        <!-- Horizontal Win-Probability Momentum Bar -->
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-center justify-between text-xs font-bold">
+            <span class="text-slate-700 flex items-center gap-1.5">
+              <span class="inline-block w-2.5 h-2.5 rounded-full bg-white border-2 border-slate-900"></span>
+              <span id="evalWhitePct">White 52%</span>
+            </span>
+            <span id="evalScoreBadge" class="mono text-xs font-extrabold px-2.5 py-0.5 rounded-md bg-slate-900 text-white">
+              +0.20
+            </span>
+            <span class="text-slate-700 flex items-center gap-1.5">
+              <span id="evalBlackPct">Black 48%</span>
+              <span class="inline-block w-2.5 h-2.5 rounded-full bg-slate-900"></span>
+            </span>
+          </div>
+          <!-- Dual-Contrast Bar Track -->
+          <div class="w-full h-3.5 bg-slate-900 rounded-full overflow-hidden border border-slate-300 flex shadow-inner">
+            <div
+              id="pulseFill"
+              class="h-full bg-white transition-all duration-300 ease-out"
+              style="width: 52%; border-right: 2px solid #2563EB;"
+            ></div>
           </div>
         </div>
 
@@ -569,6 +569,31 @@
             <div id="variationMoves" class="flex flex-wrap items-center gap-1 text-xs mono font-semibold"></div>
           </div>
         </div>
+         <div class="grid grid-cols-3 gap-2">
+        <button
+          onclick="toggleBestArrow()"
+          id="arrowToggleBtn"
+          class="w-full whitespace-nowrap text-xs font-semibold px-2 py-2 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition cursor-pointer"
+          title="Toggle Best Move Arrow"
+        >
+          ↗ <span class="hidden sm:inline">Best </span>Arrow: ON
+        </button>
+        <button
+          id="soundToggleBtn"
+          onclick="toggleSound()"
+          class="w-full whitespace-nowrap text-xs font-semibold px-2 py-2 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition cursor-pointer"
+          title="Toggle move sounds"
+        >
+          🔊 Sound: ON
+        </button>
+        <button
+          onclick="toggleFlipBoard()"
+          class="w-full whitespace-nowrap bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-bold px-2 py-2 rounded-lg shadow-sm transition cursor-pointer"
+          title="Flip board (F)"
+        >
+          ⇅ Flip<span class="hidden sm:inline"> Board</span>
+        </button>
+      </div>
 
         <!-- Collapsible Game Review Summary & Score Sheet Card -->
         <div class="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col gap-3">
@@ -616,6 +641,9 @@
 
       </section>
     </main>
+
+    </div>
+    </div>
   </div>
 
   <script>
@@ -707,6 +735,7 @@
     let chess = new Chess();
     let fetchedGames = [];
     let activeGameIndex = 0;
+    let gameToken = 0; // bumps whenever a different game is opened
     let moveHistory = [];
     let currentPly = 0;
     let previousWinChance = 52;
@@ -824,23 +853,28 @@
       const btn = document.getElementById('soundToggleBtn');
       if (soundEnabled) {
         btn.textContent = '🔊 Sound: ON';
-        btn.className = 'text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition cursor-pointer';
+        btn.className = OPT_ON;
         getAudioCtx();
       } else {
         btn.textContent = '🔇 Sound: OFF';
-        btn.className = 'text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50 text-slate-600 hover:bg-slate-100 transition cursor-pointer';
+        btn.className = OPT_OFF;
       }
     }
 
     /**
      * 4. FETCH PLAYER GAMES FROM CHESS.COM PUBLIC API
      */
+    let loadedUser = '';
+
     async function fetchPlayerGames() {
       const inputEl = document.getElementById('usernameInput');
       const user = inputEl.value.trim().toLowerCase();
-      if (!user) return;
+      if (!user) {
+        setStatus('Enter a Chess.com username', 'rose');
+        return;
+      }
 
-      setStatus('Syncing Chess.com archives...', 'blue');
+      setStatus('Loading games...', 'blue');
       const syncBtn = document.getElementById('syncBtn');
       syncBtn.disabled = true;
       syncBtn.classList.add('opacity-60');
@@ -855,31 +889,31 @@
           throw new Error('No public game archives found');
         }
 
-        const latestArchiveUrl = archData.archives[archData.archives.length - 1];
-        const parts = latestArchiveUrl.split('/');
-        const yearMonth = `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
-        document.getElementById('archiveMonthLabel').textContent = `Archive: ${yearMonth}`;
-
-        setStatus(`Loading ${yearMonth} games...`, 'blue');
-        const gamesRes = await fetch(latestArchiveUrl);
-        if (!gamesRes.ok) {
-          throw new Error('Could not load monthly archive');
+        // Newest month first; dip into older months until we have 20 games
+        const recent = archData.archives.slice(-3).reverse();
+        let games = [];
+        for (const url of recent) {
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          const data = await res.json();
+          const valid = (data.games || [])
+            .filter(g => g.pgn && g.rules === 'chess')
+            .reverse();
+          games = games.concat(valid);
+          if (games.length >= 20) break;
         }
-        const gamesData = await gamesRes.json();
+        games = games.slice(0, 20);
 
-        const validGames = (gamesData.games || [])
-          .filter(g => g.pgn && g.rules === 'chess')
-          .slice(-10)
-          .reverse();
-
-        if (validGames.length === 0) {
-          throw new Error('No standard PGN games in latest month');
+        if (games.length === 0) {
+          throw new Error('No standard games found in recent months');
         }
 
-        fetchedGames = validGames;
+        loadedUser = user;
+        fetchedGames = games;
+        activeGameIndex = -1;
+        document.getElementById('archiveMonthLabel').textContent = `Latest ${games.length} games`;
         renderGamePills();
-        selectGame(0);
-        setStatus(`Synced ${validGames.length} games for ${user}`, 'emerald');
+        setStatus(`Loaded ${games.length} games for ${user}`, 'emerald');
       } catch (err) {
         setStatus(err.message, 'rose');
       } finally {
@@ -889,64 +923,120 @@
     }
 
     function setStatus(message, tone = 'slate') {
-      const mobileBadge = document.getElementById('apiStatusBadge');
-      const desktopBadge = document.getElementById('apiStatusDesktop');
+      const el = document.getElementById('homeStatus');
       const classes = {
         slate: 'bg-slate-100 text-slate-600',
         blue: 'bg-blue-50 text-blue-700 border border-blue-200',
         emerald: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
         rose: 'bg-rose-50 text-rose-700 border border-rose-200'
       };
-      const cls = classes[tone] || classes.slate;
-      mobileBadge.className = `md:hidden text-xs font-semibold px-2.5 py-1 rounded-full ${cls}`;
-      desktopBadge.className = `hidden md:inline-block text-xs font-semibold px-3 py-1.5 rounded-full whitespace-nowrap ${cls}`;
-      mobileBadge.textContent = message;
-      desktopBadge.textContent = message;
+      el.className = `self-start text-xs font-semibold px-3 py-1.5 rounded-full mt-1 ${classes[tone] || classes.slate}`;
+      el.textContent = message;
     }
 
     /**
      * 5. RENDER GAME SELECTOR PILLS & LOAD GAME
      */
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, ch => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+      ));
+    }
+
+    const RESULT_LABELS = {
+      checkmated: 'Checkmate', resigned: 'Resignation', timeout: 'On time', abandoned: 'Abandoned',
+      agreed: 'Agreement', stalemate: 'Stalemate', repetition: 'Repetition',
+      insufficient: 'Insufficient material', timevsinsufficient: 'Time vs insufficient',
+      '50move': '50-move rule', win: 'Win'
+    };
+
     function renderGamePills() {
       const listEl = document.getElementById('gameList');
       listEl.innerHTML = '';
 
       if (fetchedGames.length === 0) {
-        listEl.innerHTML = '<div class="text-xs font-semibold text-slate-400 py-2">No games loaded yet. Enter a Chess.com username and press Sync Games.</div>';
+        listEl.innerHTML = '<div class="text-sm font-semibold text-slate-400 py-6 text-center">No games loaded yet.<br><span class="text-xs font-medium">Enter a Chess.com username and press Load Games.</span></div>';
         return;
       }
 
-      fetchedGames.forEach((g, idx) => {
-        const pill = document.createElement('button');
-        const isActive = idx === activeGameIndex;
-        pill.className = `flex-shrink-0 text-left px-3.5 py-2 rounded-xl border transition cursor-pointer ${
-          isActive
-            ? 'bg-blue-50 border-blue-600 shadow-xs'
-            : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
-        }`;
+      const styles = {
+        win:  { card: 'border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50', tag: 'bg-emerald-600 text-white', label: 'WIN' },
+        loss: { card: 'border-rose-200 bg-rose-50/50 hover:bg-rose-50',          tag: 'bg-rose-600 text-white',    label: 'LOSS' },
+        draw: { card: 'border-slate-200 bg-slate-50 hover:bg-slate-100',          tag: 'bg-slate-500 text-white',   label: 'DRAW' }
+      };
 
+      fetchedGames.forEach((g, idx) => {
+        const iAmBlack = g.black.username.toLowerCase() === loadedUser;
+        const me = iAmBlack ? g.black : g.white;
+        const opp = iAmBlack ? g.white : g.black;
+
+        let outcome = 'draw';
+        if (me.result === 'win') outcome = 'win';
+        else if (opp.result === 'win') outcome = 'loss';
+        const st = styles[outcome];
+
+        const reasonKey = outcome === 'win' ? opp.result : me.result;
+        const reason = RESULT_LABELS[reasonKey] || reasonKey || '';
         const timeClass = (g.time_class || 'blitz').toUpperCase();
-        pill.innerHTML = `
-          <div class="flex items-center gap-1.5 text-xs font-extrabold text-slate-900">
-            <span>⚪ ${g.white.username}</span>
-            <span class="text-slate-400 font-normal">vs</span>
-            <span>⚫ ${g.black.username}</span>
-          </div>
-          <div class="text-[11px] font-semibold text-slate-500 mt-0.5 mono">
-            ${timeClass} • ${g.white.rating} / ${g.black.rating}
-          </div>
+        const date = g.end_time
+          ? new Date(g.end_time * 1000).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+          : '';
+
+        const btn = document.createElement('button');
+        btn.className = `w-full text-left flex items-center gap-3 px-3.5 py-3 rounded-xl border transition active:scale-[0.99] cursor-pointer ${st.card}`;
+        btn.innerHTML = `
+          <span class="flex-shrink-0 w-12 text-center text-[11px] font-extrabold py-1 rounded-md ${st.tag}">${st.label}</span>
+          <span class="min-w-0 flex-1">
+            <span class="block text-sm font-extrabold text-slate-900 truncate">
+              ${iAmBlack ? '⚫' : '⚪'} vs ${escapeHtml(opp.username)} <span class="mono text-xs font-semibold text-slate-500">(${escapeHtml(opp.rating)})</span>
+            </span>
+            <span class="block text-[11px] font-semibold text-slate-500 mt-0.5 truncate">
+              ${timeClass}${reason ? ' • ' + escapeHtml(reason) : ''}${date ? ' • ' + escapeHtml(date) : ''}
+            </span>
+          </span>
+          <span class="flex-shrink-0 text-slate-400 font-bold">›</span>
         `;
-        pill.onclick = () => selectGame(idx);
-        listEl.appendChild(pill);
+        btn.onclick = () => openGame(idx);
+        listEl.appendChild(btn);
       });
     }
 
+    /* ---- Screen switching (home list <-> game review) ---- */
+    function showScreen(name) {
+      document.getElementById('homeScreen').classList.toggle('hidden', name !== 'home');
+      document.getElementById('gameScreen').classList.toggle('hidden', name !== 'game');
+      window.scrollTo(0, 0);
+    }
+
+    function openGame(index) {
+      selectGame(index);
+      showScreen('game');
+      try { history.pushState({ screen: 'game' }, ''); } catch (e) { /* ignore (e.g. sandboxed file://) */ }
+    }
+
+    function showHome() {
+      if (history.state && history.state.screen === 'game') history.back();
+      else showScreen('home');
+    }
+
+    // Phone back button / swipe-back returns to the list instead of leaving the page
+    window.addEventListener('popstate', () => {
+      showScreen(history.state && history.state.screen === 'game' ? 'game' : 'home');
+    });
+
     function selectGame(index) {
       activeGameIndex = index;
-      renderGamePills();
+      gameToken++;
 
       const game = fetchedGames[index];
-      const searchedUser = document.getElementById('usernameInput').value.trim().toLowerCase();
+      const searchedUser = loadedUser || document.getElementById('usernameInput').value.trim().toLowerCase();
+
+      document.getElementById('gameTitle').textContent = `⚪ ${game.white.username} vs ⚫ ${game.black.username}`;
+      const metaDate = game.end_time
+        ? ' • ' + new Date(game.end_time * 1000).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+        : '';
+      document.getElementById('gameMeta').textContent =
+        `${(game.time_class || 'blitz').toUpperCase()} • ${game.white.rating} / ${game.black.rating}${metaDate}`;
 
       // Auto-flip board if searched username played Black
       isFlipped = (game.black.username.toLowerCase() === searchedUser);
@@ -981,16 +1071,14 @@
       renderBoard(lastMove, currentBestMove);
     }
 
+    const OPT_ON  = 'w-full whitespace-nowrap text-xs font-semibold px-2 py-2 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition cursor-pointer';
+    const OPT_OFF = 'w-full whitespace-nowrap text-xs font-semibold px-2 py-2 rounded-lg border border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200 transition cursor-pointer';
+
     function toggleBestArrow() {
       showBestArrow = !showBestArrow;
       const btn = document.getElementById('arrowToggleBtn');
-      if (showBestArrow) {
-        btn.textContent = '↗ Best Arrow: ON';
-        btn.className = 'text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition cursor-pointer';
-      } else {
-        btn.textContent = '↗ Best Arrow: OFF';
-        btn.className = 'text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200 transition cursor-pointer';
-      }
+      btn.innerHTML = `↗ <span class="hidden sm:inline">Best </span>Arrow: ${showBestArrow ? 'ON' : 'OFF'}`;
+      btn.className = showBestArrow ? OPT_ON : OPT_OFF;
       const lastMove = lastMoveOfLine();
       renderBoard(lastMove, currentBestMove);
     }
@@ -1361,7 +1449,7 @@
       const key = evalKey(plyIndex, fen);
       if (evalCache[key]) return Promise.resolve(evalCache[key]);
 
-      const pKey = `${activeGameIndex}:${key}`;
+      const pKey = `${gameToken}:${key}`;
       if (pendingEvals[pKey]) return pendingEvals[pKey];
 
       const tmp = new Chess(fen);
@@ -1371,7 +1459,7 @@
         return Promise.resolve(entry);
       }
 
-      const gameAtRequest = activeGameIndex;
+      const tokenAtRequest = gameToken;
       const p = (async () => {
         let entry;
         try {
@@ -1395,7 +1483,7 @@
         } catch (err) {
           entry = computeLocalEvaluation(null, tmp);
         }
-        if (gameAtRequest === activeGameIndex) evalCache[key] = entry;
+        if (tokenAtRequest === gameToken) evalCache[key] = entry;
         delete pendingEvals[pKey];
         return entry;
       })();
@@ -1680,6 +1768,7 @@
      */
     window.addEventListener('keydown', (e) => {
       if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+      if (document.getElementById('gameScreen').classList.contains('hidden')) return;
       if (e.key === 'ArrowRight') {
         e.preventDefault();
         stepMove(1);
@@ -1705,7 +1794,6 @@
         if (sqEl && sqEl.dataset.sq) onSquareClick(sqEl.dataset.sq);
       });
       renderGamePills();
-      renderBoard(null, null);
       fetchPlayerGames();
     };
   </script>
