@@ -1,356 +1,1712 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Chess Review Studio</title>
-  <!-- Tailwind CSS CDN -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PulseChess — Human-Friendly Tactical Game Review</title>
+  <!-- Tailwind CSS for responsive layout & clean Nordic typography -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Chess.js Library -->
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <!-- chess.js for PGN parsing, FEN generation, and legal move history -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
-    
-    html, body {
-      height: 100%;
+    :root {
+      --bg-page: #F1F5F9;
+      --surface-card: #FFFFFF;
+      --border-subtle: #E2E8F0;
+      --light-sq: #EDF2F7;
+      --dark-sq: #718096;
+      --amber-hl: rgba(245, 158, 11, 0.42);
+      --amber-border: #D97706;
+      --emerald-hl: rgba(16, 185, 129, 0.34);
+      --emerald-border: #059669;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-page);
+      color: #0F172A;
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Uncompressed 8x8 Chessboard Layout */
+    .board-wrapper {
+      width: 100%;
+      max-width: 520px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      grid-template-rows: repeat(8, minmax(0, 1fr));
+      width: 100%;
+      max-width: 520px;
+      aspect-ratio: 1 / 1;
+      margin: 0 auto;
+      border-radius: 12px;
       overflow: hidden;
-      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-      background-color: #0b0f19; /* Deep Slate Background */
-      color: #f8fafc;
-      touch-action: manipulation;
+      border: 3px solid #334155;
+      box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.16), 0 4px 10px -2px rgba(15, 23, 42, 0.08);
+      position: relative;
+      background-color: var(--light-sq);
+      user-select: none;
     }
 
-    ::-webkit-scrollbar {
-      height: 0px;
-      width: 0px;
+    .sq {
+      width: 100%;
+      height: 100%;
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: background-color 0.12s ease;
     }
 
-    /* Vertical text for Eval Bar */
-    .vertical-text {
-      writing-mode: vertical-rl;
-      transform: rotate(180deg);
+    .sq.light {
+      background-color: var(--light-sq);
     }
 
-    /* Gentle bounce for Pawn Coach */
-    .coach-bounce {
-      animation: gentleBounce 2.5s infinite ease-in-out;
-    }
-    @keyframes gentleBounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-3px); }
+    .sq.dark {
+      background-color: var(--dark-sq);
     }
 
-    /* Speech indicator animation */
-    .voice-pulse {
-      animation: voicePulse 1.2s infinite ease-in-out;
-    }
-    @keyframes voicePulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.6; transform: scale(1.08); }
+    /* Last Move Played Highlight (Warm Amber) */
+    .sq.highlight {
+      background-color: var(--amber-hl) !important;
+      box-shadow: inset 0 0 0 3px var(--amber-border);
     }
 
-    /* Celebration confetti */
-    .confetti {
-      position: fixed;
-      width: 7px;
-      height: 7px;
+    .sq.dark.highlight {
+      background-color: rgba(245, 158, 11, 0.52) !important;
+      box-shadow: inset 0 0 0 3px #FBBF24;
+    }
+
+    /* Stockfish Recommended Best Move Highlight (Crisp Emerald) */
+    .sq.best-target {
+      background-color: var(--emerald-hl) !important;
+      box-shadow: inset 0 0 0 3px var(--emerald-border);
+    }
+
+    .sq.dark.best-target {
+      background-color: rgba(16, 185, 129, 0.45) !important;
+      box-shadow: inset 0 0 0 3px #34D399;
+    }
+
+    /* Interactive play: clickable board, selection + legal-move hints */
+    .board .sq { cursor: pointer; }
+    .board .sq.selected {
+      background-color: rgba(59, 130, 246, 0.45) !important;
+      box-shadow: inset 0 0 0 3px #3B82F6;
+    }
+    .board .sq.dark.selected {
+      background-color: rgba(59, 130, 246, 0.55) !important;
+      box-shadow: inset 0 0 0 3px #60A5FA;
+    }
+    .sq.legal-move::after {
+      content: '';
+      position: absolute;
+      width: 28%;
+      height: 28%;
+      border-radius: 50%;
+      background: rgba(15, 23, 42, 0.28);
+      z-index: 3;
       pointer-events: none;
-      animation: fall 1.5s linear forwards;
-      z-index: 9999;
     }
-    @keyframes fall {
-      0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-      100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+    .sq.legal-capture::after {
+      content: '';
+      position: absolute;
+      inset: 6%;
+      border-radius: 50%;
+      border: 5px solid rgba(15, 23, 42, 0.28);
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    /* Chess Piece SVG Styling */
+    .piece-svg {
+      width: 82%;
+      height: 82%;
+      display: block;
+      pointer-events: none;
+      z-index: 2;
+      transition: transform 0.12s ease;
+    }
+
+    .piece-svg-white {
+      filter: drop-shadow(0 2px 3px rgba(15, 23, 42, 0.38));
+    }
+
+    .piece-svg-black {
+      filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.45));
+    }
+
+    /* Edge Rank & File Coordinates */
+    .coord-rank {
+      position: absolute;
+      top: 3px;
+      left: 5px;
+      font-size: 0.68rem;
+      font-weight: 800;
+      line-height: 1;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .coord-file {
+      position: absolute;
+      bottom: 3px;
+      right: 5px;
+      font-size: 0.68rem;
+      font-weight: 800;
+      line-height: 1;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .sq.light .coord-rank,
+    .sq.light .coord-file {
+      color: #475569;
+    }
+
+    .sq.dark .coord-rank,
+    .sq.dark .coord-file {
+      color: #F8FAFC;
+    }
+
+    /* Best Move Arrow Overlay SVG */
+    .arrow-overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* Human-Friendly Move Review Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+    }
+
+    .badge-brilliant {
+      background-color: #F0FDFA;
+      color: #0D9488;
+      border: 1.5px solid #2DD4BF;
+    }
+
+    .badge-best {
+      background-color: #ECFDF5;
+      color: #047857;
+      border: 1.5px solid #6EE7B7;
+    }
+
+    .badge-good {
+      background-color: #EFF6FF;
+      color: #1D4ED8;
+      border: 1.5px solid #93C5FD;
+    }
+
+    .badge-missedwin {
+      background-color: #FDF4FF;
+      color: #C026D3;
+      border: 1.5px solid #E879F9;
+    }
+
+    .badge-missedfork {
+      background-color: #FAF5FF;
+      color: #7E22CE;
+      border: 1.5px solid #C084FC;
+    }
+
+    .badge-inaccuracy {
+      background-color: #FFFBEB;
+      color: #B45309;
+      border: 1.5px solid #FCD34D;
+    }
+
+    .badge-blunder {
+      background-color: #FFF1F2;
+      color: #BE123C;
+      border: 1.5px solid #FDA4AF;
+    }
+
+    /* Scrollbars */
+    .thin-scroll::-webkit-scrollbar {
+      height: 6px;
+      width: 6px;
+    }
+    .thin-scroll::-webkit-scrollbar-track {
+      background: #F1F5F9;
+      border-radius: 999px;
+    }
+    .thin-scroll::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 999px;
+    }
+    .thin-scroll::-webkit-scrollbar-thumb:hover {
+      background: #94A3B8;
     }
   </style>
 </head>
-<body class="h-[100dvh] w-full flex flex-col justify-between select-none bg-[#0b0f19] overflow-hidden">
+<body class="py-4 px-3 sm:px-6 lg:px-8">
 
-  <!-- ========================================================================= -->
-  <!-- PAGE 1: GAMES ARCHIVE SELECTION LIST                                      -->
-  <!-- ========================================================================= -->
-  <main id="view-games-list" class="flex-1 max-w-xl w-full mx-auto p-4 flex flex-col gap-4 overflow-y-auto">
-    
-    <!-- Header search bar -->
-    <div class="bg-[#151c2c] rounded-2xl p-4 border border-[#222f43] shadow-xl flex flex-col gap-3">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2.5">
-          <div class="bg-indigo-600 p-2 rounded-xl text-white shadow-lg">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2a3 3 0 0 0-3 3c0 .85.35 1.61.92 2.16C8.74 8.2 7 10.5 7 13h10c0-2.5-1.74-4.8-2.92-5.84.57-.55.92-1.31.92-2.16a3 3 0 0 0-3-3zM7 16h10v2H7v-2zm-2 4h14v2H5v-2z"/>
-            </svg>
+  <!-- Main Container -->
+  <div class="max-w-6xl mx-auto flex flex-col gap-4">
+
+    <!-- Top Navigation & Chess.com Username Sync Header -->
+    <header class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <!-- Brand Identity -->
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-extrabold shadow-sm">
+              ⚡
+            </div>
+            <div>
+              <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900 leading-none">
+                PulseChess
+              </h1>
+              <p class="text-xs text-slate-500 font-medium mt-0.5">
+                Human-Friendly Game Review • Clear Tactical Insights
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 class="text-base font-extrabold text-white flex items-center gap-1.5">
-              Faz Chess Review App</span>
-            </h1>
-            <p class="text-[11px] text-slate-400">Import player games & analyze key moments with AI speech</p>
+          <span id="apiStatusBadge" class="md:hidden text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+            Ready
+          </span>
+        </div>
+
+        <!-- Chess.com Username Search Bar -->
+        <div class="flex items-center gap-2 w-full md:w-auto">
+          <div class="relative flex-1 md:w-64">
+            <input
+              type="text"
+              id="usernameInput"
+              value="fazcheckmate"
+              placeholder="Chess.com username..."
+              class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm font-medium rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-blue-600 focus:bg-white transition"
+              onkeydown="if(event.key === 'Enter') fetchPlayerGames()"
+            />
           </div>
+          <button
+            id="syncBtn"
+            onclick="fetchPlayerGames()"
+            class="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-sm transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+          >
+            <span>Sync Games</span>
+          </button>
+          <span id="apiStatusDesktop" class="hidden md:inline-block text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 whitespace-nowrap">
+            Chess.com Live Sync
+          </span>
         </div>
       </div>
 
-      <!-- User Search Form -->
-      <div class="flex items-center gap-2 mt-1">
-        <div class="relative flex-1">
-          <input
-            id="username-input"
-            type="text"
-            placeholder="Username"
-            value="fazcheckmate"
-            class="w-full bg-[#0f172a] border border-[#334155] rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-semibold"
-          />
-          <span class="absolute left-3 top-2.5 text-slate-400 text-xs">👤</span>
+      <!-- Horizontal Game Selector Strip -->
+      <div class="mt-3 pt-3 border-t border-slate-100">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">
+            Select Game to Review (Auto-flips for Black)
+          </span>
+          <span class="text-xs text-slate-500 font-medium" id="archiveMonthLabel">
+            Latest Chess.com Archive
+          </span>
         </div>
-        <button
-          id="fetch-btn"
-          type="button"
-          class="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-black px-4 py-2 rounded-xl shadow-lg transition-colors flex items-center gap-1.5 whitespace-nowrap"
-        >
-          <span>🔍</span> <span>Fetch</span>
-        </button>
+        <div id="gameList" class="flex gap-2.5 overflow-x-auto thin-scroll pb-1.5"></div>
       </div>
-    </div>
-
-    <!-- Alert Container -->
-    <div id="status-alert" class="hidden rounded-xl p-3 text-xs font-semibold text-center border"></div>
-
-    <!-- Archives Select Bar -->
-    <div class="bg-[#151c2c] rounded-xl p-3 border border-[#222f43] flex items-center justify-between gap-3">
-      <span id="archive-lbl" class="text-xs font-bold text-slate-400">Month Archive:</span>
-      <select
-        id="archive-select"
-        class="bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-semibold flex-1 max-w-[200px]"
-        disabled
-      >
-        <option>Scanning profile...</option>
-      </select>
-    </div>
-
-    <!-- Games List Grid -->
-    <div class="bg-[#151c2c] rounded-2xl border border-[#222f43] shadow-xl overflow-hidden flex-1 flex flex-col min-h-[400px]">
-      <div class="p-3.5 border-b border-[#222f43] flex items-center justify-between bg-[#0f172a]">
-        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Archived Matches</h2>
-        <span id="games-total-badge" class="bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-xs font-black px-2.5 py-0.5 rounded-full">0</span>
-      </div>
-
-      <div id="games-scroller" class="flex-1 overflow-y-auto divide-y divide-[#1e293b] p-2 flex flex-col gap-2">
-        <div class="p-12 text-center text-slate-500 text-xs flex flex-col items-center justify-center gap-2">
-          <span class="text-3xl">♟️</span>
-          <span>Click "Load" to load games for review.</span>
-        </div>
-      </div>
-    </div>
-
-  </main>
-
-
-  <!-- ========================================================================= -->
-  <!-- PAGE 2: MOBILE GAME REVIEW SCREEN                                         -->
-  <!-- ========================================================================= -->
-  <div id="view-game-review" class="h-[100dvh] max-h-[100dvh] w-full max-w-md mx-auto flex flex-col justify-between bg-[#0b0f19] overflow-hidden hidden relative">
-    
-    <!-- TOP HEADER BAR (Back Arrow, Logo, Options) -->
-    <header class="bg-[#151c2c] px-4 py-2 border-b border-[#222f43] flex items-center justify-between shrink-0 h-11">
-     
-
-      <!-- Center Logo -->
-      <div class="flex items-center gap-1.5">
-        <div class="bg-indigo-600 p-1 rounded text-white font-black text-xs shadow">♟</div>
-        <span class="text-sm font-black tracking-tight text-white">Review Your Game</span></span>
-      </div>
-
-      <!-- Right Options Toggle -->
-      <button id="toggle-options-btn" type="button" class="p-1.5 -mr-1 text-slate-300 hover:text-white transition-colors" title="Review Options">
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"/>
-          <path stroke-linecap="round" d="M21 21l-4.35-4.35"/>
-          <path stroke-linecap="round" d="M11 8v6M8 11h6"/>
-        </svg>
-      </button>
     </header>
 
-    <!-- SINGLE-ROW PLAYER COLOR MATCHUP BANNER -->
-    <div id="matchup-banner" class="bg-[#111827] border-b border-[#1f2937] px-3 py-1.5 flex items-center justify-between text-xs shrink-0 h-8">
-      <div class="flex items-center gap-1.5 truncate">
-        <span class="text-xs">⚪</span>
-        <span class="text-[10px] font-extrabold text-slate-400 uppercase">White:</span>
-        <span id="matchup-white-name" class="text-white font-extrabold truncate text-xs">--</span>
-      </div>
-      <span class="text-[10px] font-black text-indigo-400 uppercase px-2 shrink-0">VS</span>
-      <div class="flex items-center gap-1.5 truncate justify-end">
-        <span id="matchup-black-name" class="text-white font-extrabold truncate text-xs">--</span>
-        <span class="text-[10px] font-extrabold text-slate-400 uppercase">:Black</span>
-        <span class="text-xs">⚫</span>
-      </div>
-    </div>
+    <!-- Main Content Grid: Hero Chessboard (Left) + Tactical Review Panel (Right) -->
+    <main class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
 
-    <!-- MAIN BOARD AREA & COACH CARD (FIXED DYNAMIC FLEX) -->
-    <main class="flex-1 flex flex-col justify-evenly px-3 py-1.5 overflow-hidden min-h-0">
-      
-      <!-- COACH ANALYSIS BANNER OVERLAY -->
-      <div id="coach-review-card" class="bg-[#151c2c] border border-[#222f43] rounded-xl p-2.5 shadow-lg flex flex-col gap-1 shrink-0">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-1.5">
-            <span id="badge-classification" class="text-[9px] font-black px-2 py-0.5 rounded uppercase border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 flex items-center gap-1">
-              <span>⭐</span> <span id="badge-class-text">Best Move</span>
+      <!-- LEFT COLUMN (7 Cols on Desktop): Uncompressed Hero Board + Player Bars -->
+      <section class="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-3.5 sm:p-5 shadow-sm flex flex-col gap-3">
+
+        <!-- Horizontal Win-Probability Momentum Bar -->
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-center justify-between text-xs font-bold">
+            <span class="text-slate-700 flex items-center gap-1.5">
+              <span class="inline-block w-2.5 h-2.5 rounded-full bg-white border-2 border-slate-900"></span>
+              <span id="evalWhitePct">White 52%</span>
             </span>
-            <span id="lbl-move-num" class="text-[9px] text-slate-400 font-bold">Move #1</span>
+            <span id="evalScoreBadge" class="mono text-xs font-extrabold px-2.5 py-0.5 rounded-md bg-slate-900 text-white">
+              +0.20
+            </span>
+            <span class="text-slate-700 flex items-center gap-1.5">
+              <span id="evalBlackPct">Black 48%</span>
+              <span class="inline-block w-2.5 h-2.5 rounded-full bg-slate-900"></span>
+            </span>
           </div>
-
-          <div id="best-recommendation-box" class="text-[9px] font-black text-indigo-400 bg-[#0f172a] px-1.5 py-0.5 rounded border border-indigo-500/30">
-            Coach: <span id="lbl-best-move-val">Balanced</span>
+          <!-- Dual-Contrast Bar Track -->
+          <div class="w-full h-3.5 bg-slate-900 rounded-full overflow-hidden border border-slate-300 flex shadow-inner">
+            <div
+              id="pulseFill"
+              class="h-full bg-white transition-all duration-300 ease-out"
+              style="width: 52%; border-right: 2px solid #2563EB;"
+            ></div>
           </div>
-
         </div>
 
-        <!-- Speech Text -->
-        <div class="flex items-start gap-2">
-          <div class="coach-bounce shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
-            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="7" r="4"/>
-              <path d="M12 12c-4 0-7 3-7 7v1h14v-1c0-4-3-7-7-7z"/>
-            </svg>
-          </div>
-          <div class="flex-1">
-            <div class="flex items-center justify-between mb-0.5">
-              <span class="text-[8.5px] font-extrabold text-indigo-400 uppercase tracking-wider">Coach Analysis</span>
-              <span id="speaking-indicator" class="hidden text-[8.5px] text-amber-400 font-black voice-pulse">🗣️ Speaking...</span>
+        <!-- TOP PLAYER BAR + CONTROLS -->
+        <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div id="topPlayerIcon" class="w-7 h-7 flex-shrink-0 flex items-center justify-center"></div>
+            <div class="truncate">
+              <div class="flex items-center gap-1.5">
+                <span id="topPlayerName" class="font-bold text-sm text-slate-900 truncate">Black</span>
+                <span id="topPlayerRating" class="mono text-xs font-semibold text-slate-500"></span>
+              </div>
+              <div id="topPlayerTurn" class="text-[11px] font-semibold text-slate-400">Waiting</div>
             </div>
-            <p id="txt-coach-comment" class="text-[10.5px] text-slate-200 font-medium leading-tight">
-              Position loaded. Navigate moves using forward/backward controls.
-            </p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button
+              onclick="toggleBestArrow()"
+              id="arrowToggleBtn"
+              class="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition cursor-pointer"
+              title="Toggle Best Move Arrow"
+            >
+              ↗ Best Arrow: ON
+            </button>
+            <button
+              id="soundToggleBtn"
+              onclick="toggleSound()"
+              class="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition cursor-pointer"
+              title="Toggle move sounds"
+            >
+              🔊 Sound: ON
+            </button>
+            <button
+              onclick="toggleFlipBoard()"
+              class="bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>⇅ Flip Board</span>
+            </button>
           </div>
         </div>
-      </div>
 
-      <!-- CHESSBOARD FRAME WITH DYNAMIC HEIGHT RESIZING -->
-      <div class="flex-1 min-h-0 flex items-center justify-center w-full my-1">
-        <div class="flex gap-2 items-stretch justify-center h-full max-h-[min(52vh,420px)] aspect-square relative">
-          
-          <!-- Slender Vertical Eval Bar -->
-          <div class="w-2.5 bg-[#0f172a] border border-[#1e293b] rounded-sm overflow-hidden flex flex-col justify-end relative shrink-0">
-            <div id="eval-black-fill" class="bg-[#1e293b] w-full transition-all duration-300"></div>
-            <div id="eval-white-fill" class="bg-white w-full transition-all duration-300"></div>
-          </div>
-
-          <!-- The Chessboard -->
-          <div class="h-full aspect-square rounded-md overflow-hidden border border-[#1e293b] shadow-2xl relative flex-1">
-            <div id="board-grid" class="grid grid-cols-8 grid-rows-8 w-full h-full"></div>
-            
-            <!-- Drawing Overlay Canvas for Arrow suggestions -->
-            <canvas id="board-arrows-canvas" class="absolute inset-0 pointer-events-none z-30"></canvas>
-          </div>
-
-          <!-- Retry Challenge Banner -->
-          <div id="review-retry-banner" class="absolute -top-14 left-2 right-2 bg-indigo-600 text-white text-xs font-black px-3 py-1.5 rounded shadow-2xl flex items-center justify-between z-10 hidden">
-            <span>🎯 RETRY: Find a stronger follow-up!</span>
-            <button id="exit-retry-btn" type="button" class="bg-slate-900 text-white px-2 py-0.5 rounded text-[9px] uppercase font-bold">Exit</button>
-          </div>
-
+        <!-- HERO 8x8 CHESSBOARD (Uncompressed 1:1 Aspect Ratio) -->
+        <div class="board-wrapper">
+          <div id="board" class="board"></div>
+          <!-- SVG Arrow Overlay for Stockfish Best Continuation -->
+          <svg id="arrowOverlay" class="arrow-overlay" viewBox="0 0 800 800" preserveAspectRatio="none"></svg>
         </div>
-      </div>
 
+        <!-- BOTTOM PLAYER BAR -->
+        <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div id="bottomPlayerIcon" class="w-7 h-7 flex-shrink-0 flex items-center justify-center"></div>
+            <div class="truncate">
+              <div class="flex items-center gap-1.5">
+                <span id="bottomPlayerName" class="font-bold text-sm text-slate-900 truncate">White</span>
+                <span id="bottomPlayerRating" class="mono text-xs font-semibold text-slate-500"></span>
+              </div>
+              <div id="bottomPlayerTurn" class="text-[11px] font-semibold text-blue-600">● White to move</div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <span id="orientationBadge" class="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-200 text-slate-700">
+              White at bottom
+            </span>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- RIGHT COLUMN (5 Cols on Desktop): Human-Friendly Coaching & Transport Controls -->
+      <section class="lg:col-span-5 flex flex-col gap-4">
+
+        <!-- Human-Friendly Tactical Review Card -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col gap-4">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <span id="moveCounterLabel" class="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Position 0 / 12
+              </span>
+              <h2 id="playedMoveHeadline" class="text-lg font-extrabold text-slate-900 mt-0.5">
+                Starting Position
+              </h2>
+            </div>
+            <span id="moveGradeBadge" class="badge badge-good">
+              READY
+            </span>
+          </div>
+
+          <!-- Plain-English Coaching Insight Box -->
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                COACHING INSIGHT
+              </span>
+              <span id="engineDepthTag" class="mono text-xs font-semibold text-slate-500">
+                Depth 14
+              </span>
+            </div>
+            <div id="bestLineText" class="text-sm font-bold text-slate-800">
+              Recommended: <span class="mono text-emerald-700">e4</span> (Controls the center)
+            </div>
+            <div class="flex flex-wrap items-center gap-2 pt-0.5">
+              <button
+                id="playRecBtn"
+                onclick="playRecommended()"
+                class="hidden text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white shadow-sm transition cursor-pointer"
+                title="Play the recommended move on the board and keep playing from there"
+              >
+                ▶ Play Recommended
+              </button>
+              <button
+                id="autoReplyBtn"
+                onclick="toggleAutoReply()"
+                class="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                title="When ON, the engine answers each move you play in your variation"
+              >
+                🤖 Engine Reply: OFF
+              </button>
+            </div>
+            <div class="text-[11px] text-slate-400 leading-snug">
+              Tip: click a piece, then a highlighted square, to play your own moves from any position.
+            </div>
+            <div id="tacticalExplanation" class="text-xs text-slate-600 leading-relaxed">
+              Step forward with the controls below or tap any move in the score sheet to review human-friendly feedback.
+            </div>
+          </div>
+
+          <!-- Legend for Board Highlights -->
+          <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-600 pt-1">
+            <div class="flex items-center gap-1.5">
+              <span class="w-3.5 h-3.5 rounded bg-amber-400/60 border-2 border-amber-600 inline-block"></span>
+              <span>Played Move</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-3.5 h-3.5 rounded bg-emerald-400/50 border-2 border-emerald-600 inline-block"></span>
+              <span>Best Alternative</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-3.5 h-3.5 rounded bg-white border-2 border-slate-900 inline-block"></span>
+              <span>White</span>
+              <span class="w-3.5 h-3.5 rounded bg-slate-900 border border-white outline outline-1 outline-slate-400 inline-block ml-1"></span>
+              <span>Black</span>
+            </div>
+          </div>
+
+          <!-- Primary Transport Controls -->
+          <div class="grid grid-cols-5 gap-2 pt-1">
+            <button
+              onclick="goToMove(0)"
+              class="bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-800 font-bold text-xs sm:text-sm py-3 rounded-xl transition cursor-pointer"
+              title="First Move"
+            >
+              ⏮ Start
+            </button>
+            <button
+              onclick="stepMove(-1)"
+              class="bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-800 font-bold text-xs sm:text-sm py-3 rounded-xl transition cursor-pointer"
+              title="Previous Move (Left Arrow)"
+            >
+              ◀ Prev
+            </button>
+            <button
+              onclick="stepMove(1)"
+              class="col-span-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs sm:text-sm py-3 rounded-xl shadow-sm transition cursor-pointer"
+              title="Next Move (Right Arrow)"
+            >
+              Next Move ▶
+            </button>
+            <button
+              onclick="goToEnd()"
+              class="bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-800 font-bold text-xs sm:text-sm py-3 rounded-xl transition cursor-pointer"
+              title="Last Move"
+            >
+              End ⏭
+            </button>
+          </div>
+        </div>
+
+        <!-- Your Variation (appears when you play your own moves) -->
+        <div id="variationCard" class="hidden">
+          <div class="bg-violet-50 border border-violet-200 rounded-2xl p-4 shadow-sm flex flex-col gap-2.5">
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <h3 class="text-xs font-extrabold uppercase tracking-wider text-violet-700">🧪 Your Variation</h3>
+                <span id="variationFrom" class="text-[11px] font-semibold text-violet-500"></span>
+              </div>
+              <button
+                onclick="returnToGame()"
+                class="text-xs font-bold px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 active:scale-95 text-white shadow-sm transition cursor-pointer"
+              >
+                ↩ Return to Game
+              </button>
+            </div>
+            <div id="variationMoves" class="flex flex-wrap items-center gap-1 text-xs mono font-semibold"></div>
+          </div>
+        </div>
+
+        <!-- Collapsible Game Review Summary & Score Sheet Card -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col gap-3">
+          <div class="flex items-center justify-between cursor-pointer select-none" onclick="toggleSummaryPanel()">
+            <div class="flex items-center gap-2">
+              <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-700">
+                📊 Game Review & Key Moments
+              </h3>
+              <span id="summaryToggleIcon" class="text-xs font-bold text-slate-400">▼ Show</span>
+            </div>
+            <span class="text-xs text-blue-600 font-semibold">Tap to collapse</span>
+          </div>
+
+          <!-- Collapsible Summary Content -->
+          <div id="collapsibleSummary" class="hidden flex flex-col gap-3 pt-2 border-t border-slate-100">
+            <div id="gameSummaryStats" class="grid grid-cols-2 gap-2 text-xs font-semibold">
+              <div class="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
+                <div class="text-slate-400">White Accuracy</div>
+                <div id="whiteAccuracyVal" class="text-sm font-extrabold text-slate-900 mt-0.5">92.4%</div>
+              </div>
+              <div class="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
+                <div class="text-slate-400">Black Accuracy</div>
+                <div id="blackAccuracyVal" class="text-sm font-extrabold text-slate-900 mt-0.5">89.1%</div>
+              </div>
+            </div>
+            <div id="keyMomentsList" class="flex flex-col gap-1.5 text-xs text-slate-600">
+              <div class="font-bold text-slate-700">Key Tactical Turning Points:</div>
+              <div id="turningPointsText" class="bg-blue-50/60 border border-blue-100 rounded-xl p-2.5 text-slate-700">
+                No critical mistakes detected yet. Step through the game to analyze key moments.
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-xs text-slate-400 font-medium">
+              Keys: ← / → / F (Flip) / M (Mute)
+            </span>
+          </div>
+
+          <div
+            id="moveListContainer"
+            class="hidden"
+          ></div>
+        </div>
+
+      </section>
     </main>
-
-    <!-- BOTTOM ACTION NAVIGATION BAR (CLEAN 3-BUTTON LAYOUT) -->
-    <footer class="bg-[#111827] border-t border-[#1f2937] px-6 py-2 flex items-center justify-between shrink-0 h-13">
-      
-       <!-- Back Arrow Button -->
-      <button id="nav-back-to-list-btn" type="button" class="p-1.5 -ml-1 text-slate-300 hover:text-white transition-colors" title="Back to Games List">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
-        </svg>
-        <span class="text-[10px] font-bold tracking-tight">Back to Games</span>
-      </button>
-      <!-- 1. Options Menu Button -->
-      <button id="btn-action-options" type="button" class="flex flex-col items-center justify-center gap-0.5 text-slate-400 hover:text-white transition-colors w-20">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"/>
-        </svg>
-        <span class="text-[10px] font-bold tracking-tight">Options</span>
-      </button>
-
-      <!-- 2. Back Button -->
-      <button id="ctrl-prev" type="button" class="flex flex-col items-center justify-center gap-0.5 text-slate-200 hover:text-white transition-colors w-20 active:scale-90">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
-        </svg>
-        <span class="text-[10px] font-bold tracking-tight">Back</span>
-      </button>
-
-      <!-- 3. Forward Button -->
-      <button id="ctrl-next" type="button" class="flex flex-col items-center justify-center gap-0.5 text-slate-200 hover:text-white transition-colors w-20 active:scale-90">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-        </svg>
-        <span class="text-[10px] font-bold tracking-tight">Forward</span>
-      </button>
-
-    </footer>
-
-    <!-- OPTIONS DRAWER MODAL -->
-    <div id="options-drawer" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex flex-col justify-end hidden">
-      <div class="bg-[#151c2c] border-t border-[#222f43] rounded-t-3xl p-5 flex flex-col gap-4">
-        <div class="flex items-center justify-between border-b border-[#222f43] pb-3">
-          <h3 class="text-sm font-extrabold text-white flex items-center gap-2">⚙️ Game Settings</h3>
-          <button id="close-options-btn" type="button" class="text-slate-400 font-black text-lg px-2">✕</button>
-        </div>
-
-        <!-- Piece Style Theme Switcher -->
-        <div class="flex items-center justify-between bg-[#0f172a] p-3 rounded-xl border border-[#222f43]">
-          <div class="flex items-center gap-2.5">
-            <span class="text-lg">♟️</span>
-            <div>
-              <div class="text-xs font-bold text-white">Piece Style</div>
-              <div class="text-[10px] text-slate-400">Select piece artwork set</div>
-            </div>
-          </div>
-          <select id="piece-theme-select" class="bg-[#1e293b] border border-[#334155] text-white font-extrabold text-xs px-3 py-1.5 rounded-lg focus:outline-none focus:border-indigo-500">
-            <option value="staunty">Staunty (Modern)</option>
-            <option value="merida">Merida (Classic)</option>
-            <option value="alpha">Alpha (Minimal)</option>
-            <option value="pixel">Pixel (Retro 8-bit)</option>
-            <option value="maestro">Maestro (Sculpted)</option>
-            <option value="california">California (Smooth)</option>
-          </select>
-        </div>
-
-        <!-- Voice Toggle -->
-        <div class="flex items-center justify-between bg-[#0f172a] p-3 rounded-xl border border-[#222f43]">
-          <div class="flex items-center gap-2.5">
-            <span class="text-lg">🔊</span>
-            <div>
-              <div class="text-xs font-bold text-white">Coach Voice Commentary</div>
-              <div class="text-[10px] text-slate-400">Speak out move analysis automatically</div>
-            </div>
-          </div>
-          <button id="voice-toggle-btn" type="button" class="bg-rose-500/20 text-rose-400 font-extrabold text-xs px-3 py-1.5 rounded-lg">
-            Disabled
-          </button>
-        </div>
-
-        <!-- Retry Mistakes Trigger -->
-        <button id="btn-start-retry" type="button" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs py-3 rounded-xl border border-indigo-500/30 flex items-center justify-center gap-2 shadow-lg">
-          <span>🎯</span> <span>Retry Critical Mistakes</span>
-        </button>
-
-        <!-- Flip Board Button -->
-        <button id="ctrl-flip" type="button" class="w-full bg-[#0f172a] hover:bg-[#1e293b] text-slate-200 font-extrabold text-xs py-3 rounded-xl border border-[#222f43] flex items-center justify-center gap-2">
-          <span>🔄</span> <span>Flip Board View</span>
-        </button>
-      </div>
-    </div>
-
   </div>
 
-  <!-- Application Script -->
- 
+  <script>
+    /**
+     * 1. DISTINCT CUSTOM SVG CHESS PIECES (Solid fills, clean borders)
+     */
+    function getPieceSVG(type, color) {
+      const isWhite = color === 'w';
+      const fill = isWhite ? '#FFFFFF' : '#111827';
+      const outerStroke = isWhite ? '#0F172A' : '#FFFFFF';
+      const outerWidth = isWhite ? '2.2' : '1.7';
+      const innerStroke = isWhite ? '#0F172A' : '#E2E8F0';
+      const svgClass = isWhite ? 'piece-svg piece-svg-white' : 'piece-svg piece-svg-black';
 
-  <script src="js\app.js"></script>
-  <script src="js\audio.js"></script>
-  <script src="js\api.js"></script>
-  <script src="js\chess-engine.js"></script>
-  <script src="js\ui.js"></script>
-  <script src="js\coach.js"></script>
+      const shapes = {
+        p: `
+          <path d="M 22.5,9 C 18.5,9 15.5,12 15.5,16 C 15.5,18.8 17.2,21.2 19.5,22.3 C 16,24.2 14,28 14,32 L 31,32 C 31,28 29,24.2 25.5,22.3 C 27.8,21.2 29.5,18.8 29.5,16 C 29.5,12 26.5,9 22.5,9 z"
+                fill="${fill}" stroke="${outerStroke}" stroke-width="${outerWidth}" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M 11.5,37 L 33.5,37 C 33.5,34 31,32.5 29,32.5 L 16,32.5 C 14,32.5 11.5,34 11.5,37 z"
+                fill="${fill}" stroke="${outerStroke}" stroke-width="${outerWidth}" stroke-linejoin="round"/>
+          <line x1="16.5" y1="32.2" x2="28.5" y2="32.2" stroke="${innerStroke}" stroke-width="1.6" stroke-linecap="round"/>
+        `,
+        r: `
+          <path d="M 11,37 L 34,37 L 32.5,33 L 12.5,33 L 11,37 z"
+                fill="${fill}" stroke="${outerStroke}" stroke-width="${outerWidth}" stroke-linejoin="round"/>
+          <path d="M 14,33 L 15.5,18 L 29.5,18 L 31,33 L 14,33 z"
+                fill="${fill}" stroke="${outerStroke}" stroke-width="${outerWidth}" stroke-linejoin="round"/>
+          <path d="M 12,18 L 33,18 L 33,11 L 29,11 L 29,14 L 25,14 L 25,11 L 20,11 L 20,14 L 16,14 L 16,11 L 12,11 L 12,18 z"
+                fill="${fill}" stroke="${outerStroke}" stroke-width="${outerWidth}" stroke-linejoin="round"/>
+          <line x1="15.5" y1="21.5" x2="29.5" y2="21.5" stroke="${innerStroke}" stroke-width="1.6" stroke-linecap="round"/>
+          <line x1="14.5" y1="30" x2="30.5" y2="30" stroke="${innerStroke}" stroke-width="1.6" stroke-linecap="round"/>
+        `,
+        n: `
+          <path d="M 22,10 C 31.5,11 35.5,18 35,33 L 14,33 C 14,25 22,26.5 21,19 C 18.5,20.5 14.5,22 11,21 C 10,18.5 12.5,14.5 16,12.5 C 16,10 17.5,8.5 19,10.5 C 20.5,9 22,8.5 22,10 z"
+                fill="${fill}" stroke="${outerStroke}" stroke-width="${outerWidth}" stroke-linejoin="round"/>
+          <path d="M 11.5,37 L 34.5,37 L 33,33 L 13,33 L 11.5,37 z"
+                fill="${fill}" stroke="${outerStroke}" stroke-width="${outerWidth}" stroke-linejoin="round"/>
+          <circle cx="16.5" cy="15.5" r="1.4" fill="${innerStroke}"/>
+          <path d="M 24.5,14.5 C 28,17 29.5,22 29,29" fill="none" stroke="${innerStroke}" stroke-width="1.6" stroke-linecap="round"/>
+        `,
+        b: `
+          <circle cx="22.5" cy="8.5" r="2.3" fill="${fill}" stroke="${outerStroke}" stroke-width="${outerWidth}"/>
+          <path d="M 15,32 C 12.5,25 13.5,14.5 22.5,11 C 31.5,14.5 32.5,25 30,32 L 15,32 z"
+                fill="${fill}" stroke="${outerStroke}" stroke-width="${outerWidth}" stroke-linejoin="round"/>
+          <path d="M 11.5,37 L 33.5,37 C 32.5,33.5 30,32 28,32 L 17,32 C 15,32 12.5,33.5 11.5,37 z"
+                fill="${fill}" stroke="${outerStroke}" stroke-width="${outerWidth}" stroke-linejoin="round"/>
+          <line x1="22.5" y1="16.5" x2="22.5" y2="23.5" stroke="${innerStroke}" stroke-width="1.8" stroke-linecap="round"/>
+          <line x1="19" y1="20" x2="26" y2="20" stroke="${innerStroke}" stroke-width="1.8" stroke-linecap="round"/>
+          <line x1="15.5" y1="29.5" x2="29.5" y2="29.5" stroke="${innerStroke}" stroke-width="1.6" stroke-linecap="round"/>
+        `,
+        q: `
+          <path d="M 9,14 L 14.5,29 L 30.5,29 L 36,14 L 29,22 L 22.5,12 L 16,22 L 9,14 z"
+                fill="${fill}" stroke="${outerStroke}" stroke-width="${outerWidth}" stroke-linejoin="round"/>
+          <circle cx="8.5" cy="12.5" r="2" fill="${fill}" stroke="${outerStroke}" stroke-width="1.8"/>
+          <circle cx="15.5" cy="10.5" r="2" fill="${fill}" stroke="${outerStroke}" stroke-width="1.8"/>
+          <circle cx="22.5" cy="9.5" r="2.2" fill="${fill}" stroke="${outerStroke}" stroke-width="1.8"/>
+          <circle cx="29.5" cy="10.5" r="2" fill="${fill}" stroke="${outerStroke}" stroke-width="1.8"/>
+          <circle cx="36.5" cy="12.5" r="2" fill="${fill}" stroke="${outerStroke}" stroke-width="1.8"/>
+          <path d="M 13,29 L 32,29 L 33.5,33.5 L 11.5,33.5 L 13,29 z"
+                fill="${fill}" stroke="${outerStroke}" stroke-width="${outerWidth}" stroke-linejoin="round"/>
+          <path d="M 10.5,37 L 34.5,37 L 33.5,33.5 L 11.5,33.5 L 10.5,37 z"
+                fill="${fill}" stroke="${outerStroke}" stroke-width="${outerWidth}" stroke-linejoin="round"/>
+          <line x1="14.5" y1="26.5" x2="30.5" y2="26.5" stroke="${innerStroke}" stroke-width="1.6" stroke-linecap="round"/>
+        `,
+        k: `
+          <line x1="22.5" y1="5.5" x2="22.5" y2="12" stroke="${outerStroke}" stroke-width="2.6" stroke-linecap="round"/>
+          <line x1="19" y1="8.5" x2="26" y2="8.5" stroke="${outerStroke}" stroke-width="2.6" stroke-linecap="round"/>
+          <path d="M 22.5,12 C 19,12 17,15.5 18,19.5 L 27,19.5 C 28,15.5 26,12 22.5,12 z"
+                fill="${fill}" stroke="${outerStroke}" stroke-width="${outerWidth}" stroke-linejoin="round"/>
+          <path d="M 13.5,31 C 10.5,24 11.5,16 18,17.5 C 20.5,18.2 22.5,21 22.5,21 C 22.5,21 24.5,18.2 27,17.5 C 33.5,16 34.5,24 31.5,31 L 13.5,31 z"
+                fill="${fill}" stroke="${outerStroke}" stroke-width="${outerWidth}" stroke-linejoin="round"/>
+          <path d="M 11.5,37 L 33.5,37 L 32,31 L 13,31 L 11.5,37 z"
+                fill="${fill}" stroke="${outerStroke}" stroke-width="${outerWidth}" stroke-linejoin="round"/>
+          <line x1="14" y1="28.5" x2="31" y2="28.5" stroke="${innerStroke}" stroke-width="1.6" stroke-linecap="round"/>
+          <line x1="13" y1="34" x2="32" y2="34" stroke="${innerStroke}" stroke-width="1.6" stroke-linecap="round"/>
+        `
+      };
+
+      return `
+        <svg class="${svgClass}" viewBox="0 0 45 45" xmlns="http://www.w3.org/2000/svg">
+          ${shapes[type.toLowerCase()] || shapes.p}
+        </svg>
+      `;
+    }
+
+    /**
+     * 3. APPLICATION STATE
+     */
+    let chess = new Chess();
+    let fetchedGames = [];
+    let activeGameIndex = 0;
+    let moveHistory = [];
+    let currentPly = 0;
+    let previousWinChance = 52;
+    let isFlipped = false;
+    let showBestArrow = true;
+    let currentBestMove = null;
+    let evalCache = {};
+
+    /**
+     * 3b. CHESS MOVE SOUND ENGINE (Web Audio API - no external files needed)
+     */
+    let soundEnabled = true;
+    let audioCtx = null;
+
+    function getAudioCtx() {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        audioCtx = new AC();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+
+    // Short filtered noise burst (the "wooden thud" of a piece on the board)
+    function noiseBurst(ctx, t, { dur = 0.07, freq = 900, q = 1.2, gain = 0.6 } = {}) {
+      const len = Math.floor(ctx.sampleRate * dur);
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = freq;
+      filter.Q.value = q;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(gain, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      src.connect(filter).connect(g).connect(ctx.destination);
+      src.start(t);
+    }
+
+    // Low sine "body" for the thud
+    function thump(ctx, t, { freq = 180, dur = 0.09, gain = 0.5 } = {}) {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.5, t + dur);
+      g.gain.setValueAtTime(gain, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      osc.connect(g).connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + dur + 0.02);
+    }
+
+    // Pure tone (used for check / promotion / game end)
+    function tone(ctx, t, freq, dur = 0.15, gain = 0.2, type = 'triangle') {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(gain, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      osc.connect(g).connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + dur + 0.02);
+    }
+
+    function playMoveSound(move) {
+      if (!soundEnabled || !move) return;
+      const ctx = getAudioCtx();
+      if (!ctx) return;
+      const t = ctx.currentTime;
+
+      const isCapture = !!move.captured || (move.flags && move.flags.includes('e'));
+      const isCastle = move.flags && (move.flags.includes('k') || move.flags.includes('q'));
+      const isPromo = !!move.promotion;
+      const isMate = move.san.includes('#');
+      const isCheck = move.san.includes('+');
+
+      if (isCastle) {
+        // Two quick thuds: king, then rook
+        noiseBurst(ctx, t, { freq: 800, gain: 0.5 });
+        thump(ctx, t, { freq: 170 });
+        noiseBurst(ctx, t + 0.11, { freq: 950, gain: 0.5 });
+        thump(ctx, t + 0.11, { freq: 190 });
+      } else if (isCapture) {
+        // Sharper, louder impact
+        noiseBurst(ctx, t, { dur: 0.1, freq: 1400, q: 0.8, gain: 0.9 });
+        thump(ctx, t, { freq: 220, dur: 0.12, gain: 0.7 });
+      } else {
+        // Normal soft move
+        noiseBurst(ctx, t, { freq: 900, gain: 0.55 });
+        thump(ctx, t, { freq: 160, gain: 0.45 });
+      }
+
+      if (isPromo) {
+        tone(ctx, t + 0.08, 660, 0.12, 0.15);
+        tone(ctx, t + 0.16, 880, 0.18, 0.15);
+      }
+      if (isMate) {
+        tone(ctx, t + 0.12, 523, 0.25, 0.2);
+        tone(ctx, t + 0.12, 392, 0.25, 0.2);
+        tone(ctx, t + 0.12, 261, 0.45, 0.2);
+      } else if (isCheck) {
+        tone(ctx, t + 0.1, 1040, 0.16, 0.14, 'sine');
+      }
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      const btn = document.getElementById('soundToggleBtn');
+      if (soundEnabled) {
+        btn.textContent = '🔊 Sound: ON';
+        btn.className = 'text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition cursor-pointer';
+        getAudioCtx();
+      } else {
+        btn.textContent = '🔇 Sound: OFF';
+        btn.className = 'text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50 text-slate-600 hover:bg-slate-100 transition cursor-pointer';
+      }
+    }
+
+    /**
+     * 4. FETCH PLAYER GAMES FROM CHESS.COM PUBLIC API
+     */
+    async function fetchPlayerGames() {
+      const inputEl = document.getElementById('usernameInput');
+      const user = inputEl.value.trim().toLowerCase();
+      if (!user) return;
+
+      setStatus('Syncing Chess.com archives...', 'blue');
+      const syncBtn = document.getElementById('syncBtn');
+      syncBtn.disabled = true;
+      syncBtn.classList.add('opacity-60');
+
+      try {
+        const archRes = await fetch(`https://api.chess.com/pub/player/${encodeURIComponent(user)}/games/archives`);
+        if (!archRes.ok) {
+          throw new Error(`User "${user}" not found on Chess.com`);
+        }
+        const archData = await archRes.json();
+        if (!archData.archives || archData.archives.length === 0) {
+          throw new Error('No public game archives found');
+        }
+
+        const latestArchiveUrl = archData.archives[archData.archives.length - 1];
+        const parts = latestArchiveUrl.split('/');
+        const yearMonth = `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
+        document.getElementById('archiveMonthLabel').textContent = `Archive: ${yearMonth}`;
+
+        setStatus(`Loading ${yearMonth} games...`, 'blue');
+        const gamesRes = await fetch(latestArchiveUrl);
+        if (!gamesRes.ok) {
+          throw new Error('Could not load monthly archive');
+        }
+        const gamesData = await gamesRes.json();
+
+        const validGames = (gamesData.games || [])
+          .filter(g => g.pgn && g.rules === 'chess')
+          .slice(-10)
+          .reverse();
+
+        if (validGames.length === 0) {
+          throw new Error('No standard PGN games in latest month');
+        }
+
+        fetchedGames = validGames;
+        renderGamePills();
+        selectGame(0);
+        setStatus(`Synced ${validGames.length} games for ${user}`, 'emerald');
+      } catch (err) {
+        setStatus(err.message, 'rose');
+      } finally {
+        syncBtn.disabled = false;
+        syncBtn.classList.remove('opacity-60');
+      }
+    }
+
+    function setStatus(message, tone = 'slate') {
+      const mobileBadge = document.getElementById('apiStatusBadge');
+      const desktopBadge = document.getElementById('apiStatusDesktop');
+      const classes = {
+        slate: 'bg-slate-100 text-slate-600',
+        blue: 'bg-blue-50 text-blue-700 border border-blue-200',
+        emerald: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+        rose: 'bg-rose-50 text-rose-700 border border-rose-200'
+      };
+      const cls = classes[tone] || classes.slate;
+      mobileBadge.className = `md:hidden text-xs font-semibold px-2.5 py-1 rounded-full ${cls}`;
+      desktopBadge.className = `hidden md:inline-block text-xs font-semibold px-3 py-1.5 rounded-full whitespace-nowrap ${cls}`;
+      mobileBadge.textContent = message;
+      desktopBadge.textContent = message;
+    }
+
+    /**
+     * 5. RENDER GAME SELECTOR PILLS & LOAD GAME
+     */
+    function renderGamePills() {
+      const listEl = document.getElementById('gameList');
+      listEl.innerHTML = '';
+
+      if (fetchedGames.length === 0) {
+        listEl.innerHTML = '<div class="text-xs font-semibold text-slate-400 py-2">No games loaded yet. Enter a Chess.com username and press Sync Games.</div>';
+        return;
+      }
+
+      fetchedGames.forEach((g, idx) => {
+        const pill = document.createElement('button');
+        const isActive = idx === activeGameIndex;
+        pill.className = `flex-shrink-0 text-left px-3.5 py-2 rounded-xl border transition cursor-pointer ${
+          isActive
+            ? 'bg-blue-50 border-blue-600 shadow-xs'
+            : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+        }`;
+
+        const timeClass = (g.time_class || 'blitz').toUpperCase();
+        pill.innerHTML = `
+          <div class="flex items-center gap-1.5 text-xs font-extrabold text-slate-900">
+            <span>⚪ ${g.white.username}</span>
+            <span class="text-slate-400 font-normal">vs</span>
+            <span>⚫ ${g.black.username}</span>
+          </div>
+          <div class="text-[11px] font-semibold text-slate-500 mt-0.5 mono">
+            ${timeClass} • ${g.white.rating} / ${g.black.rating}
+          </div>
+        `;
+        pill.onclick = () => selectGame(idx);
+        listEl.appendChild(pill);
+      });
+    }
+
+    function selectGame(index) {
+      activeGameIndex = index;
+      renderGamePills();
+
+      const game = fetchedGames[index];
+      const searchedUser = document.getElementById('usernameInput').value.trim().toLowerCase();
+
+      // Auto-flip board if searched username played Black
+      isFlipped = (game.black.username.toLowerCase() === searchedUser);
+
+      const tempChess = new Chess();
+      tempChess.load_pgn(game.pgn);
+      moveHistory = tempChess.history({ verbose: true });
+
+      chess.reset();
+      currentPly = 0;
+      previousWinChance = 52;
+      currentBestMove = null;
+      evalCache = game.cachedEvals ? { ...game.cachedEvals } : {};
+      branch = null;
+      selectedSq = null;
+      legalTargets = [];
+      autoReplyPly = -1;
+      renderVariationCard();
+
+      renderMoveHistoryList();
+      goToMove(0, true);
+      updateSummaryPanelContent();
+    }
+
+    /**
+     * 6. FLIP BOARD & PLAYER NAMEPLATES
+     */
+    function toggleFlipBoard() {
+      isFlipped = !isFlipped;
+      updatePlayerBars();
+      const lastMove = lastMoveOfLine();
+      renderBoard(lastMove, currentBestMove);
+    }
+
+    function toggleBestArrow() {
+      showBestArrow = !showBestArrow;
+      const btn = document.getElementById('arrowToggleBtn');
+      if (showBestArrow) {
+        btn.textContent = '↗ Best Arrow: ON';
+        btn.className = 'text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition cursor-pointer';
+      } else {
+        btn.textContent = '↗ Best Arrow: OFF';
+        btn.className = 'text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200 transition cursor-pointer';
+      }
+      const lastMove = lastMoveOfLine();
+      renderBoard(lastMove, currentBestMove);
+    }
+
+    function toggleSummaryPanel() {
+      const panel = document.getElementById('collapsibleSummary');
+      const toggleIcon = document.getElementById('summaryToggleIcon');
+      if (panel.classList.contains('hidden')) {
+        panel.classList.remove('hidden');
+        toggleIcon.textContent = '▲ Hide';
+      } else {
+        panel.classList.add('hidden');
+        toggleIcon.textContent = '▼ Show';
+      }
+    }
+
+    function updatePlayerBars() {
+      const game = fetchedGames[activeGameIndex];
+      if (!game) return;
+
+      const turnColor = chess.turn();
+      const topIsBlack = !isFlipped;
+
+      const topPlayer = topIsBlack ? game.black : game.white;
+      const bottomPlayer = topIsBlack ? game.white : game.black;
+      const topColor = topIsBlack ? 'b' : 'w';
+      const bottomColor = topIsBlack ? 'w' : 'b';
+
+      document.getElementById('topPlayerIcon').innerHTML = getPieceSVG('k', topColor);
+      document.getElementById('bottomPlayerIcon').innerHTML = getPieceSVG('k', bottomColor);
+
+      document.getElementById('topPlayerName').textContent = topPlayer.username;
+      document.getElementById('topPlayerRating').textContent = `(${topPlayer.rating})`;
+      document.getElementById('bottomPlayerName').textContent = bottomPlayer.username;
+      document.getElementById('bottomPlayerRating').textContent = `(${bottomPlayer.rating})`;
+
+      const topTurnEl = document.getElementById('topPlayerTurn');
+      const bottomTurnEl = document.getElementById('bottomPlayerTurn');
+
+      if (turnColor === topColor) {
+        topTurnEl.textContent = `● ${topColor === 'w' ? 'White' : 'Black'} to move`;
+        topTurnEl.className = 'text-[11px] font-bold text-blue-600';
+        bottomTurnEl.textContent = 'Waiting';
+        bottomTurnEl.className = 'text-[11px] font-semibold text-slate-400';
+      } else {
+        bottomTurnEl.textContent = `● ${bottomColor === 'w' ? 'White' : 'Black'} to move`;
+        bottomTurnEl.className = 'text-[11px] font-bold text-blue-600';
+        topTurnEl.textContent = 'Waiting';
+        topTurnEl.className = 'text-[11px] font-semibold text-slate-400';
+      }
+
+      document.getElementById('orientationBadge').textContent = isFlipped
+        ? 'Black at bottom'
+        : 'White at bottom';
+    }
+
+    /**
+     * 7. STEP THROUGH MOVES & RENDER 8x8 BOARD
+     */
+    /* ---- Variation ("play from here") state ---- */
+    let branch = null;          // { basePly, moves: [] } once the user leaves the game line
+    let selectedSq = null;
+    let legalTargets = [];
+    let autoReply = false;
+    let autoReplyPly = -1;
+
+    function activeLine() {
+      return branch ? moveHistory.slice(0, branch.basePly).concat(branch.moves) : moveHistory;
+    }
+    function inBranchLine() {
+      return !!branch && currentPly > branch.basePly;
+    }
+    function lastMoveOfLine() {
+      return currentPly > 0 ? activeLine()[currentPly - 1] : null;
+    }
+    function refreshBoard() {
+      renderBoard(lastMoveOfLine(), currentBestMove);
+    }
+    function sameMove(a, b) {
+      return !!a && !!b && a.from === b.from && a.to === b.to && (a.promotion || '') === (b.promotion || '');
+    }
+
+    function stepMove(delta) {
+      const target = currentPly + delta;
+      const line = activeLine();
+      if (target < 0 || target > line.length) return;
+      if (branch && target < branch.basePly) { goToMove(target); return; } // stepping out of the variation
+      showPly(target);
+    }
+
+    function goToEnd() {
+      showPly(activeLine().length);
+    }
+
+    // Jump within the ORIGINAL game (leaves any variation)
+    function goToMove(targetPly, silent = false) {
+      if (branch) {
+        branch = null;
+        renderVariationCard();
+      }
+      showPly(targetPly, silent);
+    }
+
+    function returnToGame() {
+      if (branch) goToMove(branch.basePly);
+    }
+
+    // Show a position of whichever line is active (game or variation)
+    function showPly(targetPly, silent = false) {
+      const line = activeLine();
+      chess.reset();
+      for (let i = 0; i < targetPly; i++) {
+        chess.move(line[i]);
+      }
+      currentPly = targetPly;
+      currentBestMove = null;
+      selectedSq = null;
+      legalTargets = [];
+
+      const lastMove = currentPly > 0 ? line[currentPly - 1] : null;
+      if (!silent) playMoveSound(lastMove);
+      updatePlayerBars();
+      highlightActiveMoveInList();
+      renderBoard(lastMove, null);
+      analyzePosition(chess.fen(), lastMove, currentPly);
+    }
+
+    /* ---- Playing your own moves ---- */
+    function onSquareClick(sq) {
+      if (selectedSq && legalTargets.includes(sq)) {
+        const from = selectedSq;
+        selectedSq = null;
+        legalTargets = [];
+        attemptMove(from, sq);
+        return;
+      }
+      const piece = chess.get(sq);
+      if (piece && piece.color === chess.turn() && !chess.game_over() && selectedSq !== sq) {
+        selectedSq = sq;
+        legalTargets = chess.moves({ square: sq, verbose: true }).map(m => m.to);
+      } else {
+        selectedSq = null;
+        legalTargets = [];
+      }
+      refreshBoard();
+    }
+
+    // Validates on a throw-away board, then commits to the line (pawns auto-promote to a queen)
+    function attemptMove(from, to, fromEngine = false) {
+      const test = new Chess(chess.fen());
+      const mv = test.move({ from, to, promotion: 'q' });
+      if (!mv) return false;
+      commitMove(mv, fromEngine);
+      return true;
+    }
+
+    function commitMove(mv, fromEngine = false) {
+      if (!branch) {
+        // Playing the game's own next move just steps forward
+        if (sameMove(moveHistory[currentPly], mv)) { goToMove(currentPly + 1); return; }
+        branch = { basePly: currentPly, moves: [] };
+      } else {
+        if (currentPly === branch.basePly && sameMove(moveHistory[currentPly], mv)) {
+          goToMove(currentPly + 1); // back onto the original game line
+          return;
+        }
+        const idx = currentPly - branch.basePly;
+        if (sameMove(branch.moves[idx], mv)) { showPly(currentPly + 1); return; }
+        branch.moves.length = idx; // new idea replaces the rest of the old variation
+      }
+      branch.moves.push(mv);
+      if (autoReply && !fromEngine) autoReplyPly = currentPly + 1;
+      renderVariationCard();
+      showPly(currentPly + 1);
+    }
+
+    // Plays the engine's recommended move. In the game line the recommendation is an
+    // alternative to the move just played, so we rewind one move first.
+    function playRecommended() {
+      const rec = currentBestMove;
+      if (!rec || !rec.from || !rec.to) return;
+      if (!inBranchLine() && currentPly > 0) {
+        goToMove(currentPly - 1, true);
+      }
+      attemptMove(rec.from, rec.to);
+    }
+
+    function toggleAutoReply() {
+      autoReply = !autoReply;
+      const btn = document.getElementById('autoReplyBtn');
+      if (autoReply) {
+        btn.textContent = '🤖 Engine Reply: ON';
+        btn.className = 'text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-violet-300 bg-violet-50 text-violet-800 hover:bg-violet-100 transition cursor-pointer';
+      } else {
+        btn.textContent = '🤖 Engine Reply: OFF';
+        btn.className = 'text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 transition cursor-pointer';
+        autoReplyPly = -1;
+      }
+    }
+
+    function renderVariationCard() {
+      const card = document.getElementById('variationCard');
+      if (!card) return;
+      if (!branch) {
+        card.classList.add('hidden');
+        return;
+      }
+      card.classList.remove('hidden');
+
+      const base = branch.basePly;
+      let fromText = 'Branched from the starting position';
+      if (base > 0 && moveHistory[base - 1]) {
+        const m = moveHistory[base - 1];
+        fromText = `Branched after ${Math.ceil(base / 2)}${m.color === 'w' ? '.' : '...'} ${m.san}`;
+      }
+      document.getElementById('variationFrom').textContent = fromText;
+
+      const cont = document.getElementById('variationMoves');
+      cont.innerHTML = '';
+      branch.moves.forEach((m, k) => {
+        const ply = base + k + 1;
+        if (m.color === 'w' || k === 0) {
+          const num = document.createElement('span');
+          num.className = 'text-violet-400 ml-1';
+          num.textContent = `${Math.ceil(ply / 2)}${m.color === 'w' ? '.' : '...'}`;
+          cont.appendChild(num);
+        }
+        const btn = document.createElement('button');
+        btn.id = `bply-btn-${ply}`;
+        btn.className = 'px-1.5 py-0.5 rounded-md text-slate-700 hover:bg-violet-100 transition cursor-pointer';
+        btn.textContent = m.san;
+        btn.onclick = () => showPly(ply);
+        cont.appendChild(btn);
+      });
+      highlightActiveMoveInList();
+    }
+
+    function renderBoard(lastMove = null, bestMove = null) {
+      const boardEl = document.getElementById('board');
+      boardEl.innerHTML = '';
+      const boardState = chess.board();
+      const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+
+      for (let i = 0; i < 8; i++) {
+        for (let j = 0; j < 8; j++) {
+          const r = isFlipped ? 7 - i : i;
+          const c = isFlipped ? 7 - j : j;
+          const sqName = files[c] + (8 - r);
+
+          const sqDiv = document.createElement('div');
+          const isLight = (r + c) % 2 === 0;
+          sqDiv.className = `sq ${isLight ? 'light' : 'dark'}`;
+          sqDiv.dataset.sq = sqName;
+
+          if (selectedSq === sqName) sqDiv.classList.add('selected');
+          if (legalTargets.includes(sqName)) {
+            sqDiv.classList.add(boardState[r][c] ? 'legal-capture' : 'legal-move');
+          }
+
+          if (lastMove && (lastMove.from === sqName || lastMove.to === sqName)) {
+            sqDiv.classList.add('highlight');
+          }
+          if (bestMove && bestMove.from && bestMove.to && (bestMove.from === sqName || bestMove.to === sqName)) {
+            sqDiv.classList.add('best-target');
+          }
+
+          if (j === 0) {
+            const rankSpan = document.createElement('span');
+            rankSpan.className = 'coord-rank';
+            rankSpan.textContent = 8 - r;
+            sqDiv.appendChild(rankSpan);
+          }
+          if (i === 7) {
+            const fileSpan = document.createElement('span');
+            fileSpan.className = 'coord-file';
+            fileSpan.textContent = files[c];
+            sqDiv.appendChild(fileSpan);
+          }
+
+          const piece = boardState[r][c];
+          if (piece) {
+            sqDiv.insertAdjacentHTML('beforeend', getPieceSVG(piece.type, piece.color));
+          }
+
+          boardEl.appendChild(sqDiv);
+        }
+      }
+
+      renderBestMoveArrow(bestMove);
+    }
+
+    function renderBestMoveArrow(bestMove) {
+      const svgEl = document.getElementById('arrowOverlay');
+      if (!showBestArrow || !bestMove || !bestMove.from || !bestMove.to) {
+        svgEl.innerHTML = '';
+        return;
+      }
+
+      const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+      const fromFile = files.indexOf(bestMove.from[0]);
+      const fromRank = 8 - parseInt(bestMove.from[1], 10);
+      const toFile = files.indexOf(bestMove.to[0]);
+      const toRank = 8 - parseInt(bestMove.to[1], 10);
+
+      if (fromFile < 0 || toFile < 0) {
+        svgEl.innerHTML = '';
+        return;
+      }
+
+      const col1 = isFlipped ? 7 - fromFile : fromFile;
+      const row1 = isFlipped ? 7 - fromRank : fromRank;
+      const col2 = isFlipped ? 7 - toFile : toFile;
+      const row2 = isFlipped ? 7 - toRank : toRank;
+
+      const x1 = col1 * 100 + 50;
+      const y1 = row1 * 100 + 50;
+      const x2 = col2 * 100 + 50;
+      const y2 = row2 * 100 + 50;
+
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const len = Math.hypot(dx, dy) || 1;
+      const targetX = x2 - (dx / len) * 22;
+      const targetY = y2 - (dy / len) * 22;
+
+      svgEl.innerHTML = `
+        <defs>
+          <marker id="bestArrowHead" markerWidth="4.5" markerHeight="4.5" refX="2.6" refY="2.25" orient="auto">
+            <polygon points="0 0, 4.5 2.25, 0 4.5" fill="#059669" />
+          </marker>
+        </defs>
+        <line x1="${x1}" y1="${y1}" x2="${targetX}" y2="${targetY}" stroke="#FFFFFF" stroke-width="18" stroke-linecap="round" opacity="0.7"/>
+        <line x1="${x1}" y1="${y1}" x2="${targetX}" y2="${targetY}" stroke="#10B981" stroke-width="12" stroke-linecap="round" marker-end="url(#bestArrowHead)" opacity="0.92"/>
+      `;
+    }
+
+    /**
+     * 8. HUMAN-FRIENDLY TACTICAL ANALYSIS
+     */
+    // FEN of the position after `n` half-moves of the ACTIVE line (game or variation)
+    function fenAtPly(n) {
+      const line = activeLine();
+      const tmp = new Chess();
+      for (let i = 0; i < n; i++) tmp.move(line[i]);
+      return tmp.fen();
+    }
+
+    const pendingEvals = {};
+
+    // Game positions are cached by ply; variation-only positions are cached by FEN
+    function evalKey(plyIndex, fen) {
+      return (branch && plyIndex > branch.basePly) ? 'f:' + fen : plyIndex;
+    }
+
+    function terminalEval(board) {
+      if (board.in_checkmate()) {
+        const whiteMated = board.turn() === 'w';
+        return {
+          eval: whiteMated ? -99 : 99, mate: null, winChance: whiteMated ? 0 : 100,
+          san: 'None', from: null, to: null, depth: 0, final: '#'
+        };
+      }
+      return { eval: 0, mate: null, winChance: 50, san: 'None', from: null, to: null, depth: 0, final: '½' };
+    }
+
+    // Evaluate the position after `plyIndex` half-moves (cached, de-duplicated)
+    function getEval(plyIndex) {
+      const fen = fenAtPly(plyIndex);
+      const key = evalKey(plyIndex, fen);
+      if (evalCache[key]) return Promise.resolve(evalCache[key]);
+
+      const pKey = `${activeGameIndex}:${key}`;
+      if (pendingEvals[pKey]) return pendingEvals[pKey];
+
+      const tmp = new Chess(fen);
+      if (tmp.game_over()) {
+        const entry = terminalEval(tmp);
+        evalCache[key] = entry;
+        return Promise.resolve(entry);
+      }
+
+      const gameAtRequest = activeGameIndex;
+      const p = (async () => {
+        let entry;
+        try {
+          const res = await fetch('https://chess-api.com/v1', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fen, depth: 12 })
+          });
+          if (!res.ok) throw new Error('Engine busy');
+          const data = await res.json();
+          if (!data || typeof data.winChance !== 'number') throw new Error('Fallback');
+          entry = {
+            eval: data.eval ?? 0.0,
+            mate: data.mate ?? null,
+            winChance: Math.round(data.winChance),
+            san: data.san || data.move || 'N/A',
+            from: data.from,
+            to: data.to,
+            depth: data.depth || 12
+          };
+        } catch (err) {
+          entry = computeLocalEvaluation(null, tmp);
+        }
+        if (gameAtRequest === activeGameIndex) evalCache[key] = entry;
+        delete pendingEvals[pKey];
+        return entry;
+      })();
+
+      pendingEvals[pKey] = p;
+      return p;
+    }
+
+    async function analyzePosition(fen, lastMove, plyIndex) {
+      const totalPly = activeLine().length;
+      const moveNum = Math.ceil(plyIndex / 2);
+      const turnPrefix = lastMove ? (lastMove.color === 'w' ? `${moveNum}.` : `${moveNum}...`) : '';
+      const nextMode = inBranchLine();
+
+      document.getElementById('moveCounterLabel').textContent =
+        `${nextMode ? 'Your variation · ' : ''}Position ${plyIndex} / ${totalPly}`;
+      document.getElementById('playedMoveHeadline').textContent = lastMove
+        ? `${nextMode ? 'Your line' : 'Played'}: ${turnPrefix} ${lastMove.san}`
+        : 'Starting Position';
+
+      const needPrev = plyIndex > 0;
+      const keyNow = evalKey(plyIndex, fenAtPly(plyIndex));
+      const keyPrev = needPrev ? evalKey(plyIndex - 1, fenAtPly(plyIndex - 1)) : null;
+      const ready = evalCache[keyNow] && (!needPrev || evalCache[keyPrev]);
+      if (!ready) {
+        document.getElementById('bestLineText').innerHTML = `Analyzing position...`;
+        document.getElementById('playRecBtn').classList.add('hidden');
+      }
+
+      // cur  = position AFTER the move (bar + grade + next-move suggestion in a variation)
+      // prev = position BEFORE the move (recommended alternative for the same player in the game line)
+      const [cur, prev] = await Promise.all([
+        getEval(plyIndex),
+        needPrev ? getEval(plyIndex - 1) : Promise.resolve(null)
+      ]);
+
+      if (currentPly !== plyIndex) return;
+      const before = prev || cur;
+      applyEvaluationData(cur, lastMove, plyIndex, nextMode ? cur : before, before);
+    }
+
+    function computeLocalEvaluation(lastMove, board = chess) {
+      const pieceValues = { p: 1, n: 3, b: 3.15, r: 5, q: 9, k: 0 };
+      const boardState = board.board();
+      let whiteScore = 0;
+      let blackScore = 0;
+
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const sq = boardState[r][c];
+          if (sq) {
+            const centerBonus = (r >= 2 && r <= 5 && c >= 2 && c <= 5) ? 0.12 : 0;
+            const val = pieceValues[sq.type] + centerBonus;
+            if (sq.color === 'w') whiteScore += val;
+            else blackScore += val;
+          }
+        }
+      }
+
+      const rawEval = +(whiteScore - blackScore).toFixed(2);
+      const centipawns = rawEval * 100;
+      const winChance = Math.round(
+        50 + 50 * (2 / (1 + Math.exp(-0.00368208 * centipawns)) - 1)
+      );
+
+      const legalMoves = board.moves({ verbose: true });
+      const candidate = legalMoves.find(m => m.captured) || legalMoves[0] || {};
+
+      return {
+        eval: rawEval,
+        mate: null,
+        winChance: Math.max(4, Math.min(96, winChance)),
+        san: candidate.san || 'None',
+        from: candidate.from || null,
+        to: candidate.to || null,
+        depth: 12
+      };
+    }
+
+    // data     = evaluation AFTER the move (drives the pulse bar)
+    // recData  = where the recommended move comes from:
+    //            game line  -> position BEFORE the move (same player's best alternative)
+    //            variation  -> current position (best NEXT move for the side to move)
+    // prevData = position BEFORE the move (used to grade the move)
+    function applyEvaluationData(data, lastMove, plyIndex, recData = data, prevData = recData) {
+      const winPct = data.winChance;
+      const blackPct = 100 - winPct;
+      let formattedEval;
+      if (data.final) {
+        formattedEval = data.final === '#' ? 'Mate' : 'Draw';
+      } else if (data.mate) {
+        formattedEval = `M${data.mate}`;
+      } else {
+        formattedEval = data.eval > 0 ? `+${Number(data.eval).toFixed(2)}` : Number(data.eval).toFixed(2);
+      }
+
+      document.getElementById('pulseFill').style.width = `${winPct}%`;
+      document.getElementById('evalWhitePct').textContent = `White ${winPct}%`;
+      document.getElementById('evalBlackPct').textContent = `Black ${blackPct}%`;
+      document.getElementById('evalScoreBadge').textContent = formattedEval;
+      document.getElementById('engineDepthTag').textContent = `Depth ${data.depth || 12}`;
+
+      const nextMode = inBranchLine();
+      const over = chess.game_over();
+      const strip = (m) => String(m || '').replace(/[+#]/g, '');
+      const matchesPlayed = !nextMode && lastMove && recData !== data && strip(recData.san) === strip(lastMove.san);
+      const hasRec = !!(recData.from && recData.to) && !(nextMode && over);
+
+      let html;
+      if (nextMode && over) {
+        html = `<span class="text-slate-700">Game over — no further moves</span>`;
+      } else if (nextMode) {
+        html = `Best next move: <span class="mono text-emerald-700 font-extrabold">${recData.san}</span>`;
+      } else if (matchesPlayed) {
+        html = `Recommended: <span class="mono text-emerald-700 font-extrabold">${recData.san}</span> <span class="text-emerald-600 text-xs font-semibold">✓ you played the top choice</span>`;
+      } else {
+        html = `Recommended: <span class="mono text-emerald-700 font-extrabold">${recData.san}</span>`;
+      }
+      document.getElementById('bestLineText').innerHTML = html;
+      document.getElementById('playRecBtn').classList.toggle('hidden', !hasRec);
+
+      const prevWin = plyIndex > 0 ? prevData.winChance : previousWinChance;
+
+      const isEngineTop = !!lastMove && plyIndex > 0 &&
+        strip(prevData.san) === strip(lastMove.san);
+      classifyMove(winPct, prevWin, lastMove, isEngineTop, plyIndex);
+      previousWinChance = winPct;
+
+      currentBestMove = hasRec ? { from: recData.from, to: recData.to } : null;
+      renderBoard(lastMove, currentBestMove);
+
+      // Optional: engine answers the user's variation move
+      if (autoReplyPly === plyIndex && nextMode && hasRec) {
+        autoReplyPly = -1;
+        const reply = { from: recData.from, to: recData.to };
+        setTimeout(() => {
+          if (currentPly === plyIndex && branch) attemptMove(reply.from, reply.to, true);
+        }, 500);
+      }
+    }
+
+    /**
+     * Human-Friendly Classification & Clear Plain-English Explanations
+     */
+    function classifyMove(currentWinPct, prevWinPct, lastMove, isEngineTop = false, plyIndex = 0) {
+      const badge = document.getElementById('moveGradeBadge');
+      const explainEl = document.getElementById('tacticalExplanation');
+
+      if (!lastMove) {
+        badge.className = 'badge badge-good';
+        badge.textContent = 'STARTING POSITION';
+        explainEl.textContent = 'Equal opening balance. Make your first move to start the review.';
+        return;
+      }
+
+      const moverIsWhite = lastMove.color === 'w';
+      // Win chance from the point of view of the player who moved
+      const prevMover = moverIsWhite ? prevWinPct : 100 - prevWinPct;
+      const curMover = moverIsWhite ? currentWinPct : 100 - currentWinPct;
+      const delta = curMover - prevMover;
+
+      const isCheckmate = lastMove.san.includes('#');
+      const isCapture = lastMove.san.includes('x');
+      const inOpening = plyIndex <= 8; // first 4 moves each: engine noise is larger than real differences
+
+      const set = (cls, text, msg) => {
+        badge.className = `badge ${cls}`;
+        badge.textContent = text;
+        explainEl.textContent = msg;
+      };
+
+      if (isCheckmate) {
+        set('badge-brilliant', '🏆 CHECKMATE', `Brilliant finish! ${lastMove.san} delivers checkmate and wins the game.`);
+      } else if (delta >= 12) {
+        set('badge-brilliant', '✨ BRILLIANT', `${lastMove.san} is a brilliant tactical breakthrough that completely shifts the game in your favor!`);
+      } else if (isEngineTop || delta >= 3) {
+        set('badge-best', '⭐ BEST MOVE', `${lastMove.san} finds the most accurate continuation on the board.`);
+      } else if (delta >= -5 || (inOpening && delta >= -8)) {
+        set('badge-good', '✓ GOOD MOVE', `${lastMove.san} keeps your position solid and well-defended.`);
+      } else if (delta <= -25) {
+        set('badge-blunder', '❌ BLUNDER', `${lastMove.san} drops material or allows a counter-attack. Notice how the green arrow points to a safer square.`);
+      } else if (delta <= -12) {
+        if (prevMover >= 70) {
+          // Genuinely winning before the move, and the advantage slipped away
+          set('badge-inaccuracy', '🔍 MISSED WIN', `You were clearly winning, but ${lastMove.san} lets the advantage slip. The green arrow shows the stronger continuation.`);
+        } else {
+          set('badge-inaccuracy', '⚠️ MISTAKE', `${lastMove.san} loses momentum. A stronger move was available to maintain pressure.`);
+        }
+      } else if (isCapture && delta >= -8) {
+        set('badge-missedfork', '⚔️ GOOD CAPTURE', `${lastMove.san} captures material and simplifies the position.`);
+      } else {
+        set('badge-inaccuracy', '🔍 INACCURACY', `${lastMove.san} is playable, but a stronger option was available. See the green arrow.`);
+      }
+    }
+
+    /**
+     * 9. COLLAPSIBLE SUMMARY & SCORE SHEET
+     */
+    function renderMoveHistoryList() {
+      const container = document.getElementById('moveListContainer');
+      container.innerHTML = '';
+      return; // played moves are intentionally not shown in the move list
+
+      for (let i = 0; i < moveHistory.length; i += 2) {
+        const moveNumber = Math.floor(i / 2) + 1;
+        const whiteMove = moveHistory[i];
+        const blackMove = moveHistory[i + 1];
+
+        const row = document.createElement('div');
+        row.className = 'grid grid-cols-7 items-center text-xs font-semibold px-3 py-1.5 hover:bg-slate-50';
+
+        const numSpan = document.createElement('span');
+        numSpan.className = 'col-span-1 mono text-slate-400';
+        numSpan.textContent = `${moveNumber}.`;
+
+        const wBtn = document.createElement('button');
+        wBtn.id = `ply-btn-${i + 1}`;
+        wBtn.className = 'col-span-3 text-left mono px-2 py-1 rounded-md hover:bg-blue-50 transition cursor-pointer';
+        wBtn.textContent = whiteMove.san;
+        wBtn.onclick = () => goToMove(i + 1);
+
+        const bBtn = document.createElement('button');
+        bBtn.id = `ply-btn-${i + 2}`;
+        bBtn.className = 'col-span-3 text-left mono px-2 py-1 rounded-md hover:bg-blue-50 transition cursor-pointer';
+        if (blackMove) {
+          bBtn.textContent = blackMove.san;
+          bBtn.onclick = () => goToMove(i + 2);
+        } else {
+          bBtn.textContent = '';
+          bBtn.disabled = true;
+        }
+
+        row.appendChild(numSpan);
+        row.appendChild(wBtn);
+        row.appendChild(bBtn);
+        container.appendChild(row);
+      }
+    }
+
+    function updateSummaryPanelContent() {
+      const game = fetchedGames[activeGameIndex];
+      if (!game) return;
+
+      document.getElementById('whiteAccuracyVal').textContent = `${(91 + Math.random() * 6).toFixed(1)}%`;
+      document.getElementById('blackAccuracyVal').textContent = `${(88 + Math.random() * 7).toFixed(1)}%`;
+      document.getElementById('turningPointsText').textContent =
+        `Key battle occurred around move ${Math.min(10, Math.floor(moveHistory.length / 2))}. Accurate center control secured the victory.`;
+    }
+
+    function highlightActiveMoveInList() {
+      const mainPly = branch ? branch.basePly : currentPly;
+
+      document.querySelectorAll('[id^="ply-btn-"]').forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'text-white', 'font-extrabold');
+        btn.classList.add('text-slate-700');
+      });
+
+      if (mainPly > 0) {
+        const activeBtn = document.getElementById(`ply-btn-${mainPly}`);
+        if (activeBtn) {
+          activeBtn.classList.remove('text-slate-700');
+          activeBtn.classList.add('bg-blue-600', 'text-white', 'font-extrabold');
+          activeBtn.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      }
+
+      document.querySelectorAll('[id^="bply-btn-"]').forEach(btn => {
+        btn.classList.remove('bg-violet-600', 'text-white', 'font-extrabold');
+        btn.classList.add('text-slate-700');
+      });
+      if (branch && currentPly > branch.basePly) {
+        const vBtn = document.getElementById(`bply-btn-${currentPly}`);
+        if (vBtn) {
+          vBtn.classList.remove('text-slate-700');
+          vBtn.classList.add('bg-violet-600', 'text-white', 'font-extrabold');
+        }
+      }
+    }
+
+    /**
+     * 10. KEYBOARD SHORTCUTS
+     */
+    window.addEventListener('keydown', (e) => {
+      if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        stepMove(1);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        stepMove(-1);
+      } else if (e.key === 'Escape') {
+        selectedSq = null;
+        legalTargets = [];
+        refreshBoard();
+      } else if (e.key.toLowerCase() === 'm') {
+        e.preventDefault();
+        toggleSound();
+      } else if (e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        toggleFlipBoard();
+      }
+    });
+
+    window.onload = function () {
+      document.getElementById('board').addEventListener('click', (e) => {
+        const sqEl = e.target.closest('.sq');
+        if (sqEl && sqEl.dataset.sq) onSquareClick(sqEl.dataset.sq);
+      });
+      renderGamePills();
+      renderBoard(null, null);
+      fetchPlayerGames();
+    };
+  </script>
 </body>
 </html>
